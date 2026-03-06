@@ -1,0 +1,3 @@
+app:
+  firebase:
+    credentials-json: ${GOOGLE_APPLICATION_CREDENTIALS:}
