@@ -1,3 +1,30 @@
+spring:
+  application:
+    name: owoonwan
+  profiles:
+    default: local
+
 app:
   firebase:
-    credentials-json: ${GOOGLE_APPLICATION_CREDENTIALS:}
+    enabled: true
+    credentials: ${FIREBASE_SERVICE_ACCOUNT_JSON:${GOOGLE_APPLICATION_CREDENTIALS:}}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+app:
+  firebase:
+    enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+app:
+  firebase:
+    enabled: true
