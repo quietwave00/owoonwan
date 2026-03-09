@@ -1,4 +1,4 @@
-package org.example.owoonwan.checkin.dto;
+package org.example.owoonwan.board.dto;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package org.example.owoonwan.checkin.dto;
+package org.example.owoonwan.board.dto;
 
 import org.example.owoonwan.user.domain.UserRole;
 
@@ -8,7 +8,7 @@ public record WeeklyBoardMemberResponse(
         String uid,
         String nickname,
         UserRole role,
-        int weeklyCount,
-        List<CheckinDayResponse> days
+        List<WeeklyBoardDayResponse> days,
+        int weeklyCount
 ) {
 }

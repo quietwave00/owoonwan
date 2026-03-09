@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.checkin.dto.CheckinPeriodResponse;
 import org.example.owoonwan.checkin.dto.CheckinResponse;
-import org.example.owoonwan.checkin.dto.WeeklyBoardResponse;
 import org.example.owoonwan.checkin.service.CheckinService;
 import org.example.owoonwan.common.response.ApiResponse;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -64,11 +63,4 @@ public class CheckinController {
         return ApiResponse.ok(checkinService.getUserMonth(userId, month, authenticatedUser.userId()));
     }
 
-    @GetMapping("/week-board")
-    public ApiResponse<WeeklyBoardResponse> getWeekBoard(
-            @RequestAttribute(AUTHENTICATED_USER) AuthenticatedUser authenticatedUser,
-            @RequestParam(value = "date", required = false) String date
-    ) {
-        return ApiResponse.ok(checkinService.getWeekBoard(authenticatedUser, date));
-    }
 }

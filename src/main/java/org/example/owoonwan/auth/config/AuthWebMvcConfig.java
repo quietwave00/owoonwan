@@ -15,6 +15,6 @@ public class AuthWebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(sessionAuthInterceptor)
-                .addPathPatterns("/auth/me", "/auth/logout", "/checkins/**");
+                .addPathPatterns("/auth/me", "/auth/logout", "/checkins/**", "/board/**");
     }
 }
