@@ -26,7 +26,12 @@ public enum ErrorCode {
     SESSION_NOT_FOUND(HttpStatus.UNAUTHORIZED, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
     SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "SESSION_EXPIRED", "세션이 만료되었습니다."),
     SESSION_INACTIVE(HttpStatus.UNAUTHORIZED, "SESSION_INACTIVE", "비활성화된 세션입니다."),
-    SESSION_LOCK_CONFLICT(HttpStatus.CONFLICT, "SESSION_LOCK_CONFLICT", "동시 로그인 요청이 감지되어 잠시 후 다시 시도해주세요.");
+    SESSION_LOCK_CONFLICT(HttpStatus.CONFLICT, "SESSION_LOCK_CONFLICT", "동시 로그인 요청이 감지되어 잠시 후 다시 시도해주세요."),
+
+    CHECKIN_NOT_FOUND(HttpStatus.NOT_FOUND, "CHECKIN_NOT_FOUND", "체크인 정보를 찾을 수 없습니다."),
+    CHECKIN_TARGET_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "CHECKIN_TARGET_USER_NOT_FOUND", "조회 대상 사용자를 찾을 수 없습니다."),
+    CHECKIN_INVALID_MONTH(HttpStatus.BAD_REQUEST, "CHECKIN_INVALID_MONTH", "month 형식은 yyyy-MM 이어야 합니다."),
+    CHECKIN_INVALID_DATE(HttpStatus.BAD_REQUEST, "CHECKIN_INVALID_DATE", "date 형식은 yyyy-MM-dd 이어야 합니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
