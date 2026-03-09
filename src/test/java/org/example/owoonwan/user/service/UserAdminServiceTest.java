@@ -59,6 +59,13 @@ class UserAdminServiceTest {
         }
 
         @Override
+        public Optional<User> findByLoginId(String loginId) {
+            return users.values().stream()
+                    .filter(user -> loginId.equals(user.loginId()))
+                    .findFirst();
+        }
+
+        @Override
         public boolean existsByLoginId(String loginId) {
             return users.values().stream().anyMatch(user -> loginId.equals(user.loginId()));
         }
@@ -78,6 +85,9 @@ class UserAdminServiceTest {
             return users.get(userId);
         }
 
+        @Override
+        public void updateLastLoginAt(String userId, Instant now) {
+        }
     }
 
     private static final class FakeNicknameRepository implements NicknameRepository {

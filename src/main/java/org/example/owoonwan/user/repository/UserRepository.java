@@ -13,6 +13,8 @@ public interface UserRepository {
 
     Optional<User> findById(String userId);
 
+    Optional<User> findByLoginId(String loginId);
+
     boolean existsByLoginId(String loginId);
 
     List<User> findAll();
@@ -20,4 +22,6 @@ public interface UserRepository {
     User updateRole(String userId, UserRole role);
 
     User softDelete(String userId, Instant now);
+
+    void updateLastLoginAt(String userId, Instant now);
 }

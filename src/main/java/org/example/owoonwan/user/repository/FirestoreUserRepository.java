@@ -45,8 +45,24 @@ public class FirestoreUserRepository implements UserRepository {
     }
 
     @Override
+    public Optional<User> findByLoginId(String loginId) {
+        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
+                users().whereEqualTo("loginId", loginId).limit(1).get()
+        ).getDocuments();
+        if (documents.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(toUser(documents.get(0)));
+    }
+
+    @Override
     public boolean existsByLoginId(String loginId) {
-        return FirestoreAwait.get(loginIdLocks().document(loginId).get()).exists();
+        if (FirestoreAwait.get(loginIdLocks().document(loginId).get()).exists()) {
+            return true;
+        }
+        return !FirestoreAwait.get(
+                users().whereEqualTo("loginId", loginId).limit(1).get()
+        ).isEmpty();
     }
 
     @Override
@@ -88,6 +104,16 @@ public class FirestoreUserRepository implements UserRepository {
         FirestoreAwait.get(userRef.update(updates));
 
         return toUser(FirestoreAwait.get(userRef.get()));
+    }
+
+    @Override
+    public void updateLastLoginAt(String userId, Instant now) {
+        DocumentReference userRef = users().document(userId);
+        DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());
+        if (!snapshot.exists()) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        FirestoreAwait.get(userRef.update("lastLoginAt", Date.from(now)));
     }
 
     private CollectionReference users() {

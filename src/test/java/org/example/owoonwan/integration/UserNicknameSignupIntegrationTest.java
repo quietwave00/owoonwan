@@ -64,7 +64,7 @@ class UserNicknameSignupIntegrationTest {
     }
 
     @Test
-    @DisplayName("관리자 닉네임 3개 생성 후, 사용자가 닉네임 선택과 loginId 가입을 완료한다")
+    @DisplayName("관리자가 닉네임 3개를 만든 뒤 사용자가 닉네임을 선택해 가입한다")
     void shouldCreateNicknamesAndSignupUserBySelectingNickname() throws Exception {
         String nicknameId1 = createNicknameByAdmin("테스트1");
         String nicknameId2 = createNicknameByAdmin("테스트2");
@@ -178,6 +178,13 @@ class UserNicknameSignupIntegrationTest {
         }
 
         @Override
+        public Optional<User> findByLoginId(String loginId) {
+            return store.users.values().stream()
+                    .filter(user -> loginId.equals(user.loginId()))
+                    .findFirst();
+        }
+
+        @Override
         public boolean existsByLoginId(String loginId) {
             return store.users.values().stream().anyMatch(user -> loginId.equals(user.loginId()));
         }
@@ -229,6 +236,27 @@ class UserNicknameSignupIntegrationTest {
             );
             store.users.put(userId, deleted);
             return deleted;
+        }
+
+        @Override
+        public void updateLastLoginAt(String userId, Instant now) {
+            User user = store.users.get(userId);
+            if (user == null) {
+                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            }
+            User updated = new User(
+                    user.id(),
+                    user.loginId(),
+                    user.nicknameId(),
+                    user.role(),
+                    user.status(),
+                    user.createdAt(),
+                    user.deletedAt(),
+                    now,
+                    user.kakkdugi(),
+                    user.pledgeId()
+            );
+            store.users.put(userId, updated);
         }
     }
 

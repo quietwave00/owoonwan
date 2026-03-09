@@ -78,7 +78,7 @@ public class UserAdminService {
         return userRepository.findAll();
     }
 
-    private String normalizeAndValidateLoginId(String loginId) {
+    public static String normalizeAndValidateLoginId(String loginId) {
         if (loginId == null || loginId.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "loginId 값이 필요합니다.");
         }
