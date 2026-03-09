@@ -5,8 +5,9 @@ import com.google.cloud.firestore.Firestore;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -18,14 +19,16 @@ import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 
 @Configuration
+@EnableConfigurationProperties(FirebaseProperties.class)
+@RequiredArgsConstructor
 @ConditionalOnProperty(name = "app.firebase.enabled", havingValue = "true", matchIfMissing = true)
 public class FirebaseConfig {
 
-    @Value("${app.firebase.credentials:}")
-    private String credentials;
+    private final FirebaseProperties firebaseProperties;
 
     @Bean
     public Firestore firestore() throws IOException {
+        String credentials = firebaseProperties.getCredentials();
         if (credentials == null || credentials.isBlank()) {
             throw new IllegalStateException(
                     "Missing Firebase credentials. " +
