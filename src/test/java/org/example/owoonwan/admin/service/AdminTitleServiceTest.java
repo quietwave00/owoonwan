@@ -1,26 +1,30 @@
-package org.example.owoonwan.board.service;
+package org.example.owoonwan.admin.service;
 
-import org.example.owoonwan.auth.dto.AuthenticatedUser;
-import org.example.owoonwan.board.dto.WeeklyBoardResponse;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
+import org.example.owoonwan.title.domain.TitleRules;
+import org.example.owoonwan.title.dto.TitleResponse;
+import org.example.owoonwan.title.repository.TitleRuleRepository;
+import org.example.owoonwan.title.service.MonthlyTitleCalculator;
+import org.example.owoonwan.title.service.SpecialTitleResolver;
+import org.example.owoonwan.title.service.TitleQueryService;
+import org.example.owoonwan.title.service.TitleRuleService;
+import org.example.owoonwan.title.service.WeeklyTitleCalculator;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserRole;
 import org.example.owoonwan.user.domain.UserStatus;
 import org.example.owoonwan.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,68 +34,70 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class WeeklyBoardServiceTest {
+class AdminTitleServiceTest {
 
     @Test
-    @DisplayName("주간 보드는 활성 사용자별 주간 합계와 체크인 가능 여부를 내려준다")
-    void shouldBuildWeeklyBoardForActiveUsers() {
-        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+    @DisplayName("관리자가 깍두기를 부여하고 해제할 수 있다")
+    void shouldAssignAndRevokeKakkdugi() {
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
+        Instant now = Instant.parse("2026-03-11T00:00:00Z");
         userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
 
-        InMemoryNicknameRepository nicknameRepository = new InMemoryNicknameRepository();
-        nicknameRepository.save(new Nickname("n1", "나리", true, "u1", now, now));
-        nicknameRepository.save(new Nickname("n2", "범수", true, "u2", now, now));
-        nicknameRepository.save(new Nickname("n3", "채린", true, "u3", now, now));
-
-        InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
-        checkinRepository.save(new CheckinSaveCommand(
-                "u1_20260311",
-                "u1",
-                "2026-03-11",
-                "2026-W11",
-                "2026-03",
-                CheckinStatus.PRESENT,
-                now
-        ));
-        checkinRepository.save(new CheckinSaveCommand(
-                "u2_20260310",
-                "u2",
-                "2026-03-10",
-                "2026-W11",
-                "2026-03",
-                CheckinStatus.PRESENT,
-                Instant.parse("2026-03-10T00:00:00Z")
-        ));
-
-        WeeklyBoardService service = new WeeklyBoardService(
-                checkinRepository,
+        AdminTitleService service = new AdminTitleService(
                 userRepository,
-                nicknameRepository,
+                createTitleQueryService(userRepository, now),
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", UserRole.REGULAR, "token");
 
-        WeeklyBoardResponse response = service.getWeeklyBoard(authenticatedUser, "2026-03-11");
+        assertTrue(service.assignKakkdugi("u1").kakkdugi());
+        assertFalse(service.revokeKakkdugi("u1").kakkdugi());
+    }
 
-        assertEquals("2026-W11", response.weekKey());
-        assertEquals("2026-03-09", response.weekStartDate());
-        assertEquals("2026-03-15", response.weekEndDate());
-        assertEquals(2, response.members().size());
-        assertEquals("나리", response.members().get(0).nickname());
-        assertEquals(1, response.members().get(0).weeklyCount());
-        assertTrue(response.members().get(0).days().stream()
-                .filter(day -> "2026-03-11".equals(day.date()))
-                .findFirst()
-                .orElseThrow()
-                .canCheckinAction());
-        assertFalse(response.members().get(1).days().stream()
-                .filter(day -> "2026-03-11".equals(day.date()))
-                .findFirst()
-                .orElseThrow()
-                .canCheckinAction());
+    @Test
+    @DisplayName("관리자 타이틀 검증 조회는 활성 사용자만 포함한다")
+    void shouldVerifyTitlesForActiveUsers() {
+        InMemoryUserRepository userRepository = new InMemoryUserRepository();
+        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+        userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, true, null));
+        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
+
+        AdminTitleService service = new AdminTitleService(
+                userRepository,
+                createTitleQueryService(userRepository, now),
+                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
+        );
+
+        List<TitleResponse> titles = service.verifyTitles("2026-W11", "2026-03").titles();
+
+        assertEquals(2, titles.size());
+        assertEquals("u1", titles.get(0).uid());
+        assertEquals("u2", titles.get(1).uid());
+    }
+
+    private TitleQueryService createTitleQueryService(UserRepository userRepository, Instant now) {
+        InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
+        checkinRepository.save(new CheckinSaveCommand("u1_20260309", "u1", "2026-03-09", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
+        checkinRepository.save(new CheckinSaveCommand("u1_20260310", "u1", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
+        checkinRepository.save(new CheckinSaveCommand("u1_20260311", "u1", "2026-03-11", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
+        checkinRepository.save(new CheckinSaveCommand("u2_20260310", "u2", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.ABSENT, now));
+
+        return new TitleQueryService(
+                checkinRepository,
+                userRepository,
+                new TitleRuleService(new SingleObjectProvider<>(new InMemoryTitleRuleRepository())),
+                new WeeklyTitleCalculator(),
+                new MonthlyTitleCalculator(),
+                new SpecialTitleResolver(),
+                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
+        );
+    }
+
+    private static final class InMemoryTitleRuleRepository implements TitleRuleRepository {
+        @Override
+        public Optional<TitleRules> findRules() {
+            return Optional.of(new TitleRules(3, 12));
+        }
     }
 
     private static final class InMemoryCheckinRepository implements CheckinRepository {
@@ -99,7 +105,7 @@ class WeeklyBoardServiceTest {
 
         @Override
         public Checkin save(CheckinSaveCommand command) {
-            Checkin updated = new Checkin(
+            Checkin checkin = new Checkin(
                     command.documentId(),
                     command.userId(),
                     command.date(),
@@ -108,15 +114,14 @@ class WeeklyBoardServiceTest {
                     command.status(),
                     command.checkedAt()
             );
-            store.put(command.documentId(), updated);
-            return updated;
+            store.put(command.documentId(), checkin);
+            return checkin;
         }
 
         @Override
         public List<Checkin> findByDate(String date) {
             return store.values().stream()
                     .filter(checkin -> date.equals(checkin.date()))
-                    .sorted(Comparator.comparing(Checkin::userId))
                     .toList();
         }
 
@@ -125,7 +130,6 @@ class WeeklyBoardServiceTest {
             return store.values().stream()
                     .filter(checkin -> userId.equals(checkin.userId()))
                     .filter(checkin -> checkin.date().compareTo(startDate) >= 0 && checkin.date().compareTo(endDate) <= 0)
-                    .sorted(Comparator.comparing(Checkin::date))
                     .toList();
         }
 
@@ -133,16 +137,12 @@ class WeeklyBoardServiceTest {
         public List<Checkin> findByUserIdAndMonthKey(String userId, String monthKey) {
             return store.values().stream()
                     .filter(checkin -> userId.equals(checkin.userId()) && monthKey.equals(checkin.monthKey()))
-                    .sorted(Comparator.comparing(Checkin::date))
                     .toList();
         }
 
         @Override
         public List<Checkin> findByWeekKey(String weekKey) {
-            return store.values().stream()
-                    .filter(checkin -> weekKey.equals(checkin.weekKey()))
-                    .sorted(Comparator.comparing(Checkin::userId).thenComparing(Checkin::date))
-                    .toList();
+            return List.of();
         }
     }
 
@@ -161,9 +161,7 @@ class WeeklyBoardServiceTest {
 
         @Override
         public Optional<User> findByLoginId(String loginId) {
-            return users.values().stream()
-                    .filter(user -> loginId.equals(user.loginId()))
-                    .findFirst();
+            return users.values().stream().filter(user -> loginId.equals(user.loginId())).findFirst();
         }
 
         @Override
@@ -183,7 +181,24 @@ class WeeklyBoardServiceTest {
 
         @Override
         public User updateKakkdugi(String userId, boolean kakkdugi) {
-            return users.get(userId);
+            User current = users.get(userId);
+            if (current == null) {
+                return null;
+            }
+            User updated = new User(
+                    current.id(),
+                    current.loginId(),
+                    current.nicknameId(),
+                    current.role(),
+                    current.status(),
+                    current.createdAt(),
+                    current.deletedAt(),
+                    current.lastLoginAt(),
+                    kakkdugi,
+                    current.pledgeId()
+            );
+            users.put(userId, updated);
+            return updated;
         }
 
         @Override
@@ -200,44 +215,31 @@ class WeeklyBoardServiceTest {
         }
     }
 
-    private static final class InMemoryNicknameRepository implements NicknameRepository {
-        private final Map<String, Nickname> nicknames = new HashMap<>();
+    private static final class SingleObjectProvider<T> implements ObjectProvider<T> {
+        private final T value;
 
-        @Override
-        public String create(String display, Instant now) {
-            return null;
+        private SingleObjectProvider(T value) {
+            this.value = value;
         }
 
         @Override
-        public Optional<Nickname> findById(String nicknameId) {
-            return Optional.ofNullable(nicknames.get(nicknameId));
+        public T getObject(Object... args) {
+            return value;
         }
 
         @Override
-        public List<Nickname> findAll() {
-            return new ArrayList<>(nicknames.values());
+        public T getIfAvailable() {
+            return value;
         }
 
         @Override
-        public List<Nickname> findAllActive() {
-            return nicknames.values().stream().filter(Nickname::active).toList();
+        public T getIfUnique() {
+            return value;
         }
 
         @Override
-        public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-            return nicknames.get(nicknameId);
-        }
-
-        @Override
-        public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        }
-
-        @Override
-        public void clearAssignment(String userId, Instant now) {
-        }
-
-        void save(Nickname nickname) {
-            nicknames.put(nickname.id(), nickname);
+        public T getObject() {
+            return value;
         }
     }
 }

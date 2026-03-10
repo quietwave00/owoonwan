@@ -6,6 +6,7 @@ import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
 import org.example.owoonwan.checkin.dto.CheckinDayResponse;
 import org.example.owoonwan.checkin.dto.CheckinPeriodResponse;
+import org.example.owoonwan.checkin.dto.AdminBulkCheckinRequest;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
@@ -25,9 +26,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +50,31 @@ public class CheckinService {
 
     public Checkin cancelToday(AuthenticatedUser authenticatedUser) {
         return saveToday(authenticatedUser, CheckinStatus.ABSENT);
+    }
+
+    public List<Checkin> bulkCheckinForUsers(AdminBulkCheckinRequest request) {
+        LocalDate targetDate = parseRequiredDate(request == null ? null : request.date());
+        List<String> userIds = normalizeUserIds(request == null ? null : request.userIds());
+        Instant checkedAt = targetDate.atStartOfDay(KST_ZONE).toInstant();
+
+        List<Checkin> saved = new ArrayList<>();
+        for (String userId : userIds) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.CHECKIN_TARGET_USER_NOT_FOUND));
+            if (user.status() != UserStatus.ACTIVE) {
+                throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
+            }
+            saved.add(checkinRepository.save(new CheckinSaveCommand(
+                    toDocumentId(userId, targetDate.format(DATE_FORMATTER)),
+                    userId,
+                    targetDate.format(DATE_FORMATTER),
+                    TimeKeyUtil.deriveWeekKey(checkedAt),
+                    TimeKeyUtil.deriveMonthKey(checkedAt),
+                    CheckinStatus.PRESENT,
+                    checkedAt
+            )));
+        }
+        return saved;
     }
 
     private Checkin saveToday(AuthenticatedUser authenticatedUser, CheckinStatus status) {
@@ -151,6 +179,13 @@ public class CheckinService {
         if (date == null || date.isBlank()) {
             return dateTimeProvider.todayKst();
         }
+        return parseRequiredDate(date);
+    }
+
+    private LocalDate parseRequiredDate(String date) {
+        if (date == null || date.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "date 값이 필요합니다.");
+        }
         try {
             return LocalDate.parse(date, DATE_FORMATTER);
         } catch (DateTimeParseException exception) {
@@ -175,5 +210,21 @@ public class CheckinService {
 
     private String toDocumentId(String userId, String date) {
         return userId + "_" + date.replace("-", "");
+    }
+
+    private List<String> normalizeUserIds(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다.");
+        }
+        List<String> normalized = userIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다.");
+        }
+        return normalized;
     }
 }

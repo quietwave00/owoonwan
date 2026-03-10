@@ -100,6 +100,11 @@ class AuthServiceTest {
         }
 
         @Override
+        public User updateKakkdugi(String userId, boolean kakkdugi) {
+            return usersById.get(userId);
+        }
+
+        @Override
         public User softDelete(String userId, Instant now) {
             return usersById.get(userId);
         }

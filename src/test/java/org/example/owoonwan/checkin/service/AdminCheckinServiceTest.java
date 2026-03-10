@@ -1,14 +1,12 @@
-package org.example.owoonwan.board.service;
+package org.example.owoonwan.checkin.service;
 
-import org.example.owoonwan.auth.dto.AuthenticatedUser;
-import org.example.owoonwan.board.dto.WeeklyBoardResponse;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
+import org.example.owoonwan.checkin.dto.AdminBulkCheckinRequest;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
+import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserRole;
 import org.example.owoonwan.user.domain.UserStatus;
@@ -27,71 +25,54 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class WeeklyBoardServiceTest {
+class AdminCheckinServiceTest {
 
     @Test
-    @DisplayName("주간 보드는 활성 사용자별 주간 합계와 체크인 가능 여부를 내려준다")
-    void shouldBuildWeeklyBoardForActiveUsers() {
-        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+    @DisplayName("관리자는 특정 날짜에 여러 사용자의 체크인을 일괄 저장할 수 있다")
+    void shouldBulkCheckinUsersForSpecificDate() {
+        CheckinService service = createService();
+
+        List<Checkin> saved = service.bulkCheckinForUsers(new AdminBulkCheckinRequest("2026-03-02", List.of("u1", "u2")));
+
+        assertEquals(2, saved.size());
+        assertEquals("2026-03-02", saved.get(0).date());
+        assertEquals(CheckinStatus.PRESENT, saved.get(0).status());
+        assertEquals("2026-W10", saved.get(0).weekKey());
+        assertEquals("2026-03", saved.get(0).monthKey());
+    }
+
+    @Test
+    @DisplayName("중복된 사용자 아이디는 한 번만 처리한다")
+    void shouldDeduplicateUserIds() {
+        CheckinService service = createService();
+
+        List<Checkin> saved = service.bulkCheckinForUsers(new AdminBulkCheckinRequest("2026-03-02", List.of("u1", "u1", "u2")));
+
+        assertEquals(2, saved.size());
+    }
+
+    @Test
+    @DisplayName("날짜가 없으면 관리자 일괄 체크인을 거부한다")
+    void shouldRejectMissingDate() {
+        CheckinService service = createService();
+
+        assertThrows(BusinessException.class,
+                () -> service.bulkCheckinForUsers(new AdminBulkCheckinRequest(null, List.of("u1"))));
+    }
+
+    private CheckinService createService() {
+        Instant now = Instant.parse("2026-03-09T00:00:00Z");
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
         userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
 
-        InMemoryNicknameRepository nicknameRepository = new InMemoryNicknameRepository();
-        nicknameRepository.save(new Nickname("n1", "나리", true, "u1", now, now));
-        nicknameRepository.save(new Nickname("n2", "범수", true, "u2", now, now));
-        nicknameRepository.save(new Nickname("n3", "채린", true, "u3", now, now));
-
-        InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
-        checkinRepository.save(new CheckinSaveCommand(
-                "u1_20260311",
-                "u1",
-                "2026-03-11",
-                "2026-W11",
-                "2026-03",
-                CheckinStatus.PRESENT,
-                now
-        ));
-        checkinRepository.save(new CheckinSaveCommand(
-                "u2_20260310",
-                "u2",
-                "2026-03-10",
-                "2026-W11",
-                "2026-03",
-                CheckinStatus.PRESENT,
-                Instant.parse("2026-03-10T00:00:00Z")
-        ));
-
-        WeeklyBoardService service = new WeeklyBoardService(
-                checkinRepository,
+        return new CheckinService(
+                new InMemoryCheckinRepository(),
                 userRepository,
-                nicknameRepository,
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", UserRole.REGULAR, "token");
-
-        WeeklyBoardResponse response = service.getWeeklyBoard(authenticatedUser, "2026-03-11");
-
-        assertEquals("2026-W11", response.weekKey());
-        assertEquals("2026-03-09", response.weekStartDate());
-        assertEquals("2026-03-15", response.weekEndDate());
-        assertEquals(2, response.members().size());
-        assertEquals("나리", response.members().get(0).nickname());
-        assertEquals(1, response.members().get(0).weeklyCount());
-        assertTrue(response.members().get(0).days().stream()
-                .filter(day -> "2026-03-11".equals(day.date()))
-                .findFirst()
-                .orElseThrow()
-                .canCheckinAction());
-        assertFalse(response.members().get(1).days().stream()
-                .filter(day -> "2026-03-11".equals(day.date()))
-                .findFirst()
-                .orElseThrow()
-                .canCheckinAction());
     }
 
     private static final class InMemoryCheckinRepository implements CheckinRepository {
@@ -197,47 +178,6 @@ class WeeklyBoardServiceTest {
 
         void save(User user) {
             users.put(user.id(), user);
-        }
-    }
-
-    private static final class InMemoryNicknameRepository implements NicknameRepository {
-        private final Map<String, Nickname> nicknames = new HashMap<>();
-
-        @Override
-        public String create(String display, Instant now) {
-            return null;
-        }
-
-        @Override
-        public Optional<Nickname> findById(String nicknameId) {
-            return Optional.ofNullable(nicknames.get(nicknameId));
-        }
-
-        @Override
-        public List<Nickname> findAll() {
-            return new ArrayList<>(nicknames.values());
-        }
-
-        @Override
-        public List<Nickname> findAllActive() {
-            return nicknames.values().stream().filter(Nickname::active).toList();
-        }
-
-        @Override
-        public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-            return nicknames.get(nicknameId);
-        }
-
-        @Override
-        public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        }
-
-        @Override
-        public void clearAssignment(String userId, Instant now) {
-        }
-
-        void save(Nickname nickname) {
-            nicknames.put(nickname.id(), nickname);
         }
     }
 }

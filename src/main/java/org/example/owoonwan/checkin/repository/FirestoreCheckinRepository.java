@@ -46,6 +46,17 @@ public class FirestoreCheckinRepository implements CheckinRepository {
     }
 
     @Override
+    public List<Checkin> findByDate(String date) {
+        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
+                checkins()
+                        .whereEqualTo("date", date)
+                        .orderBy("userId")
+                        .get()
+        ).getDocuments();
+        return documents.stream().map(this::toCheckin).toList();
+    }
+
+    @Override
     public List<Checkin> findByUserIdAndDateRange(String userId, String startDate, String endDate) {
         List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
                 checkins()

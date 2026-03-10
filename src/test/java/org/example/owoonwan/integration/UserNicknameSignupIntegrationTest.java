@@ -217,6 +217,28 @@ class UserNicknameSignupIntegrationTest {
         }
 
         @Override
+        public User updateKakkdugi(String userId, boolean kakkdugi) {
+            User user = store.users.get(userId);
+            if (user == null) {
+                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            }
+            User updated = new User(
+                    user.id(),
+                    user.loginId(),
+                    user.nicknameId(),
+                    user.role(),
+                    user.status(),
+                    user.createdAt(),
+                    user.deletedAt(),
+                    user.lastLoginAt(),
+                    kakkdugi,
+                    user.pledgeId()
+            );
+            store.users.put(userId, updated);
+            return updated;
+        }
+
+        @Override
         public User softDelete(String userId, Instant now) {
             User user = store.users.get(userId);
             if (user == null) {

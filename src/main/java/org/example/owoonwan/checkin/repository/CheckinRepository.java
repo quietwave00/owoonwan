@@ -8,6 +8,8 @@ public interface CheckinRepository {
 
     Checkin save(CheckinSaveCommand command);
 
+    List<Checkin> findByDate(String date);
+
     List<Checkin> findByUserIdAndDateRange(String userId, String startDate, String endDate);
 
     List<Checkin> findByUserIdAndMonthKey(String userId, String monthKey);

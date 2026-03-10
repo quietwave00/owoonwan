@@ -85,6 +85,17 @@ public class FirestoreUserRepository implements UserRepository {
     }
 
     @Override
+    public User updateKakkdugi(String userId, boolean kakkdugi) {
+        DocumentReference userRef = users().document(userId);
+        DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());
+        if (!snapshot.exists()) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        FirestoreAwait.get(userRef.update(Map.of("kakkdugi", kakkdugi)));
+        return toUser(FirestoreAwait.get(userRef.get()));
+    }
+
+    @Override
     public User softDelete(String userId, Instant now) {
         DocumentReference userRef = users().document(userId);
         DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());

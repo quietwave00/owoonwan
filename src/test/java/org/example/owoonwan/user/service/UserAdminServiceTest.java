@@ -81,6 +81,11 @@ class UserAdminServiceTest {
         }
 
         @Override
+        public User updateKakkdugi(String userId, boolean kakkdugi) {
+            return users.get(userId);
+        }
+
+        @Override
         public User softDelete(String userId, Instant now) {
             return users.get(userId);
         }

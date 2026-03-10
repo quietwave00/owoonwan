@@ -119,6 +119,13 @@ class TitleQueryServiceTest {
         }
 
         @Override
+        public List<Checkin> findByDate(String date) {
+            return store.values().stream()
+                    .filter(checkin -> date.equals(checkin.date()))
+                    .toList();
+        }
+
+        @Override
         public List<Checkin> findByUserIdAndDateRange(String userId, String startDate, String endDate) {
             return store.values().stream()
                     .filter(checkin -> userId.equals(checkin.userId()))
@@ -169,6 +176,11 @@ class TitleQueryServiceTest {
 
         @Override
         public User updateRole(String userId, UserRole role) {
+            return users.get(userId);
+        }
+
+        @Override
+        public User updateKakkdugi(String userId, boolean kakkdugi) {
             return users.get(userId);
         }
 
