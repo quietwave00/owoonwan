@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TitleQueryServiceTest {
 
     @Test
-    @DisplayName("?꾩옱 二쇨컙怨??붽컙 異쒖꽍 ?섎줈 ?멸컙怨??곹샎 ??댄???怨꾩궛?쒕떎")
+    @DisplayName("주간과 월간 타이틀을 계산하고 배지를 합성한다")
     void shouldCalculateWeeklyAndMonthlyTitles() {
         TitleQueryService service = createService();
 
@@ -49,7 +49,7 @@ class TitleQueryServiceTest {
     }
 
     @Test
-    @DisplayName("源띾몢湲??ъ슜?먮뒗 special title???곗꽑 ?몄텧?쒕떎")
+    @DisplayName("깍두기 특수 타이틀이 자동 계산 결과보다 우선한다")
     void shouldIncludeKakkdugiAsSpecialTitle() {
         TitleQueryService service = createService();
 
@@ -214,4 +214,3 @@ class TitleQueryServiceTest {
         }
     }
 }
-
