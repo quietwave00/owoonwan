@@ -7,6 +7,7 @@ import org.example.owoonwan.auth.AuthAttributes;
 import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.auth.service.AuthService;
 import org.springframework.stereotype.Component;
+import org.springframework.web.cors.CorsUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
@@ -17,6 +18,10 @@ public class SessionAuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (CorsUtils.isPreFlightRequest(request)) {
+            return true;
+        }
+
         String authorizationHeader = request.getHeader("Authorization");
         AuthenticatedUser authenticatedUser = authService.authenticate(authorizationHeader);
         request.setAttribute(AuthAttributes.AUTHENTICATED_USER, authenticatedUser);
