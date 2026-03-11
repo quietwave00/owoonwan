@@ -21,6 +21,8 @@ public interface UserRepository {
 
     User updateRole(String userId, UserRole role);
 
+    User updateKakkdugi(String userId, boolean kakkdugi);
+
     User softDelete(String userId, Instant now);
 
     void updateLastLoginAt(String userId, Instant now);
