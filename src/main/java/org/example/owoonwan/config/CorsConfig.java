@@ -11,7 +11,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CorsConfig implements WebMvcConfigurer {
 
     private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
-    private static final List<String> ALLOWED_HEADERS = List.of("Authorization", "Content-Type", "X-Role");
+    private static final List<String> ALLOWED_HEADERS = List.of("Authorization", "Content-Type", "X-Role", "X-User-Id");
 
     @Value("${app.cors.allowed-origin-patterns:}")
     private String allowedOriginPatterns;
@@ -34,3 +34,4 @@ public class CorsConfig implements WebMvcConfigurer {
                 .toArray(String[]::new);
     }
 }
+

@@ -4,10 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
+import org.example.owoonwan.checkin.dto.AdminBulkCheckinRequest;
 import org.example.owoonwan.checkin.dto.CheckinDayResponse;
 import org.example.owoonwan.checkin.dto.CheckinPeriodResponse;
-import org.example.owoonwan.checkin.dto.AdminBulkCheckinRequest;
+import org.example.owoonwan.checkin.dto.UserBulkCheckinRequest;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
+import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
@@ -16,7 +18,6 @@ import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserStatus;
 import org.example.owoonwan.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
-import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
 
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -44,18 +45,25 @@ public class CheckinService {
     private final UserRepository userRepository;
     private final KstDateTimeProvider dateTimeProvider;
 
+    public List<Checkin> checkinDates(AuthenticatedUser authenticatedUser, UserBulkCheckinRequest request) {
+        return saveDates(authenticatedUser, request, CheckinStatus.PRESENT);
+    }
+
+    public List<Checkin> cancelDates(AuthenticatedUser authenticatedUser, UserBulkCheckinRequest request) {
+        return saveDates(authenticatedUser, request, CheckinStatus.ABSENT);
+    }
+
     public Checkin checkinToday(AuthenticatedUser authenticatedUser) {
-        return saveToday(authenticatedUser, CheckinStatus.PRESENT);
+        return saveForDate(authenticatedUser.userId(), dateTimeProvider.todayKst(), CheckinStatus.PRESENT);
     }
 
     public Checkin cancelToday(AuthenticatedUser authenticatedUser) {
-        return saveToday(authenticatedUser, CheckinStatus.ABSENT);
+        return saveForDate(authenticatedUser.userId(), dateTimeProvider.todayKst(), CheckinStatus.ABSENT);
     }
 
     public List<Checkin> bulkCheckinForUsers(AdminBulkCheckinRequest request) {
         LocalDate targetDate = parseRequiredDate(request == null ? null : request.date());
         List<String> userIds = normalizeUserIds(request == null ? null : request.userIds());
-        Instant checkedAt = targetDate.atStartOfDay(KST_ZONE).toInstant();
 
         List<Checkin> saved = new ArrayList<>();
         for (String userId : userIds) {
@@ -64,31 +72,9 @@ public class CheckinService {
             if (user.status() != UserStatus.ACTIVE) {
                 throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
             }
-            saved.add(checkinRepository.save(new CheckinSaveCommand(
-                    toDocumentId(userId, targetDate.format(DATE_FORMATTER)),
-                    userId,
-                    targetDate.format(DATE_FORMATTER),
-                    TimeKeyUtil.deriveWeekKey(checkedAt),
-                    TimeKeyUtil.deriveMonthKey(checkedAt),
-                    CheckinStatus.PRESENT,
-                    checkedAt
-            )));
+            saved.add(saveForDate(userId, targetDate, CheckinStatus.PRESENT));
         }
         return saved;
-    }
-
-    private Checkin saveToday(AuthenticatedUser authenticatedUser, CheckinStatus status) {
-        Instant now = dateTimeProvider.nowUtc();
-        String date = TimeKeyUtil.deriveDateString(now);
-        return checkinRepository.save(new CheckinSaveCommand(
-                toDocumentId(authenticatedUser.userId(), date),
-                authenticatedUser.userId(),
-                date,
-                TimeKeyUtil.deriveWeekKey(now),
-                TimeKeyUtil.deriveMonthKey(now),
-                status,
-                now
-        ));
     }
 
     public CheckinPeriodResponse getMyWeek(AuthenticatedUser authenticatedUser, String date) {
@@ -110,6 +96,29 @@ public class CheckinService {
 
         YearMonth targetMonth = parseMonthOrCurrent(month);
         return buildMonthResponse(userId, targetMonth, viewerUserId);
+    }
+
+    private List<Checkin> saveDates(AuthenticatedUser authenticatedUser, UserBulkCheckinRequest request, CheckinStatus status) {
+        List<LocalDate> dates = normalizeDates(request);
+        List<Checkin> saved = new ArrayList<>();
+        for (LocalDate date : dates) {
+            saved.add(saveForDate(authenticatedUser.userId(), date, status));
+        }
+        return saved;
+    }
+
+    private Checkin saveForDate(String userId, LocalDate targetDate, CheckinStatus status) {
+        Instant checkedAt = targetDate.atStartOfDay(KST_ZONE).toInstant();
+        String date = targetDate.format(DATE_FORMATTER);
+        return checkinRepository.save(new CheckinSaveCommand(
+                toDocumentId(userId, date),
+                userId,
+                date,
+                TimeKeyUtil.deriveWeekKey(checkedAt),
+                TimeKeyUtil.deriveMonthKey(checkedAt),
+                status,
+                checkedAt
+        ));
     }
 
     private CheckinPeriodResponse buildWeekResponse(String userId, LocalDate targetDate, String viewerUserId) {
@@ -159,12 +168,13 @@ public class CheckinService {
     ) {
         Map<String, CheckinStatus> statuses = checkins.stream()
                 .collect(LinkedHashMap::new, (map, checkin) -> map.put(checkin.date(), checkin.status()), Map::putAll);
+        LocalDate today = dateTimeProvider.todayKst();
 
         return startDate.datesUntil(endDate.plusDays(1))
                 .map(date -> new CheckinDayResponse(
                         date.format(DATE_FORMATTER),
                         statuses.getOrDefault(date.format(DATE_FORMATTER), CheckinStatus.ABSENT),
-                        allowCheckinAction && date.equals(dateTimeProvider.todayKst())
+                        allowCheckinAction && !date.isAfter(today)
                 ))
                 .toList();
     }
@@ -184,7 +194,7 @@ public class CheckinService {
 
     private LocalDate parseRequiredDate(String date) {
         if (date == null || date.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "date 값이 필요합니다.");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "date 값이 필요합니다");
         }
         try {
             return LocalDate.parse(date, DATE_FORMATTER);
@@ -214,7 +224,7 @@ public class CheckinService {
 
     private List<String> normalizeUserIds(List<String> userIds) {
         if (userIds == null || userIds.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다.");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다");
         }
         List<String> normalized = userIds.stream()
                 .filter(Objects::nonNull)
@@ -223,8 +233,34 @@ public class CheckinService {
                 .distinct()
                 .toList();
         if (normalized.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다.");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다");
         }
         return normalized;
+    }
+
+    private List<LocalDate> normalizeDates(UserBulkCheckinRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "dates 값이 필요합니다");
+        }
+
+        List<String> rawDates = new ArrayList<>();
+        if (request.date() != null && !request.date().isBlank()) {
+            rawDates.add(request.date());
+        }
+        if (request.dates() != null) {
+            rawDates.addAll(request.dates());
+        }
+        if (rawDates.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "dates 값이 필요합니다");
+        }
+
+        return rawDates.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .map(this::parseRequiredDate)
+                .sorted()
+                .toList();
     }
 }

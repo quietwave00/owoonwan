@@ -4,6 +4,7 @@ import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
 import org.example.owoonwan.checkin.dto.CheckinPeriodResponse;
+import org.example.owoonwan.checkin.dto.UserBulkCheckinRequest;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
 import org.example.owoonwan.common.error.BusinessException;
@@ -58,7 +59,51 @@ class CheckinServiceTest {
     }
 
     @Test
-    @DisplayName("주간 조회는 없는 날짜를 ABSENT로 보정한다")
+    @DisplayName("사용자 날짜 배열 체크인은 여러 날짜를 한 번에 PRESENT로 저장한다")
+    void shouldBulkCheckinDatesForUser() {
+        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+        CheckinService service = createService(now);
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", UserRole.REGULAR, "token");
+
+        List<Checkin> saved = service.checkinDates(authenticatedUser, new UserBulkCheckinRequest(null, List.of("2026-03-09", "2026-03-10")));
+
+        assertEquals(2, saved.size());
+        assertEquals("2026-03-09", saved.get(0).date());
+        assertEquals("2026-03-10", saved.get(1).date());
+        assertEquals(CheckinStatus.PRESENT, saved.get(0).status());
+    }
+
+    @Test
+    @DisplayName("사용자 날짜 배열 취소는 여러 날짜를 한 번에 ABSENT로 저장한다")
+    void shouldBulkCancelDatesForUser() {
+        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+        CheckinService service = createService(now);
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", UserRole.REGULAR, "token");
+
+        service.checkinDates(authenticatedUser, new UserBulkCheckinRequest(null, List.of("2026-03-09", "2026-03-10")));
+        List<Checkin> cancelled = service.cancelDates(authenticatedUser, new UserBulkCheckinRequest("2026-03-10", null));
+
+        assertEquals(1, cancelled.size());
+        assertEquals(CheckinStatus.ABSENT, cancelled.get(0).status());
+        assertEquals("2026-03-10", cancelled.get(0).date());
+    }
+
+    @Test
+    @DisplayName("주간 조회에서는 오늘 이전 날짜도 canCheckinAction=true로 내려간다")
+    void shouldAllowPastDatesInWeeklyView() {
+        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+        CheckinService service = createService(now);
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", UserRole.REGULAR, "token");
+
+        CheckinPeriodResponse response = service.getMyWeek(authenticatedUser, "2026-03-11");
+
+        assertEquals(true, response.days().stream().anyMatch(day -> "2026-03-09".equals(day.date()) && day.canCheckinAction()));
+        assertEquals(true, response.days().stream().anyMatch(day -> "2026-03-11".equals(day.date()) && day.canCheckinAction()));
+        assertEquals(false, response.days().stream().anyMatch(day -> "2026-03-15".equals(day.date()) && day.canCheckinAction()));
+    }
+
+    @Test
+    @DisplayName("주간 조회에서 없는 날짜를 ABSENT로 보정한다")
     void shouldFillAbsentDaysForWeeklyView() {
         Instant now = Instant.parse("2026-03-11T00:00:00Z");
         CheckinService service = createService(now);

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.checkin.dto.CheckinPeriodResponse;
 import org.example.owoonwan.checkin.dto.CheckinResponse;
+import org.example.owoonwan.checkin.dto.UserBulkCheckinRequest;
 import org.example.owoonwan.checkin.service.CheckinService;
 import org.example.owoonwan.common.response.ApiResponse;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,9 +12,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 
@@ -23,6 +27,26 @@ import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 public class CheckinController {
 
     private final CheckinService checkinService;
+
+    @PostMapping
+    public ApiResponse<List<CheckinResponse>> checkinDates(
+            @RequestAttribute(AUTHENTICATED_USER) AuthenticatedUser authenticatedUser,
+            @RequestBody UserBulkCheckinRequest request
+    ) {
+        return ApiResponse.ok(checkinService.checkinDates(authenticatedUser, request).stream()
+                .map(CheckinResponse::from)
+                .toList());
+    }
+
+    @DeleteMapping
+    public ApiResponse<List<CheckinResponse>> cancelDates(
+            @RequestAttribute(AUTHENTICATED_USER) AuthenticatedUser authenticatedUser,
+            @RequestBody UserBulkCheckinRequest request
+    ) {
+        return ApiResponse.ok(checkinService.cancelDates(authenticatedUser, request).stream()
+                .map(CheckinResponse::from)
+                .toList());
+    }
 
     @PostMapping("/today")
     public ApiResponse<CheckinResponse> checkinToday(
@@ -62,5 +86,4 @@ public class CheckinController {
     ) {
         return ApiResponse.ok(checkinService.getUserMonth(userId, month, authenticatedUser.userId()));
     }
-
 }

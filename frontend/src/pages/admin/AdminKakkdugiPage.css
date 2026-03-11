@@ -1,0 +1,105 @@
+﻿.admin-kakkdugi-page__list {
+  gap: 12px;
+}
+
+.admin-kakkdugi-page__item {
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-kakkdugi-page__copy {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.admin-kakkdugi-page__meta {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.admin-kakkdugi-page__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.admin-kakkdugi-page__switch-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.admin-kakkdugi-page__checkbox {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.admin-kakkdugi-page__checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.admin-kakkdugi-page__switch {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: var(--border-sm);
+  border-radius: 999px;
+  background: var(--gray-pale);
+  box-shadow: 2px 2px 0 var(--ink);
+  transition:
+    background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.admin-kakkdugi-page__switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--white);
+  transition:
+    transform var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.admin-kakkdugi-page__checkbox:checked + .admin-kakkdugi-page__switch {
+  background: var(--gray-mid);
+}
+
+.admin-kakkdugi-page__checkbox:checked + .admin-kakkdugi-page__switch::before {
+  transform: translateX(17px);
+  background: var(--ink);
+}
+
+.admin-kakkdugi-page__checkbox:focus-visible + .admin-kakkdugi-page__switch {
+  outline: 2px dashed rgba(31, 31, 31, 0.28);
+  outline-offset: 2px;
+}
+
+.admin-kakkdugi-page__checkbox:disabled + .admin-kakkdugi-page__switch {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .admin-kakkdugi-page__control {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
