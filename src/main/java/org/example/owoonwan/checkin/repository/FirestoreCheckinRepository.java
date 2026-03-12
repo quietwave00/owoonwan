@@ -93,6 +93,18 @@ public class FirestoreCheckinRepository implements CheckinRepository {
         return documents.stream().map(this::toCheckin).toList();
     }
 
+    @Override
+    public List<Checkin> findByMonthKey(String monthKey) {
+        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
+                checkins()
+                        .whereEqualTo("monthKey", monthKey)
+                        .orderBy("userId")
+                        .orderBy("date")
+                        .get()
+        ).getDocuments();
+        return documents.stream().map(this::toCheckin).toList();
+    }
+
     private CollectionReference checkins() {
         return firestore.collection("checkins");
     }

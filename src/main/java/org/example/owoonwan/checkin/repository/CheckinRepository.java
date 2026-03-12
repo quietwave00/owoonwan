@@ -15,4 +15,8 @@ public interface CheckinRepository {
     List<Checkin> findByUserIdAndMonthKey(String userId, String monthKey);
 
     List<Checkin> findByWeekKey(String weekKey);
+
+    default List<Checkin> findByMonthKey(String monthKey) {
+        throw new UnsupportedOperationException("findByMonthKey is not implemented");
+    }
 }

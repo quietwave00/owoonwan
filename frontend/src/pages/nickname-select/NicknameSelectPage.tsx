@@ -109,7 +109,6 @@ export function NicknameSelectPage() {
         <PageIntro
           eyebrow="Nickname"
           title="닉네임 선택"
-          description="처음 로그인하는 계정입니다. 닉네임은 한 번만 선택할 수 있고 이후 변경할 수 없습니다."
           actions={<Badge variant="accent">{loginId}</Badge>}
         />
 

@@ -8,12 +8,14 @@ export type AuthLoginResponse = {
   uid: string;
   loginId: string;
   nicknameId: string;
+  nicknameDisplay?: string | null;
 };
 
 export type AuthMeResponse = {
   uid: string;
   loginId: string;
   nicknameId: string;
+  nicknameDisplay?: string | null;
   role: "ADMIN" | "REGULAR";
   expiresAt: string;
 };

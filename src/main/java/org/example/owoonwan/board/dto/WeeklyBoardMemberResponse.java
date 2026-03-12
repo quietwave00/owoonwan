@@ -9,6 +9,7 @@ public record WeeklyBoardMemberResponse(
         String nickname,
         UserRole role,
         List<WeeklyBoardDayResponse> days,
-        int weeklyCount
+        int weeklyCount,
+        List<String> badges
 ) {
 }

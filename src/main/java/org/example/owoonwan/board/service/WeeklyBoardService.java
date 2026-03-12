@@ -12,6 +12,7 @@ import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
 import org.example.owoonwan.time.TimeKeyUtil;
+import org.example.owoonwan.title.service.TitleBadgeAssembler;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserStatus;
 import org.example.owoonwan.user.repository.UserRepository;
@@ -37,6 +38,7 @@ public class WeeklyBoardService {
     private final CheckinRepository checkinRepository;
     private final UserRepository userRepository;
     private final KstDateTimeProvider dateTimeProvider;
+    private final TitleBadgeAssembler titleBadgeAssembler;
 
     public WeeklyBoardResponse getWeeklyBoard(AuthenticatedUser authenticatedUser, String date) {
         LocalDate targetDate = parseDateOrToday(date);
@@ -90,7 +92,8 @@ public class WeeklyBoardService {
                 user.displayNickname(),
                 user.role(),
                 days,
-                weeklyCount
+                weeklyCount,
+                titleBadgeAssembler.buildWeeklyBadges(weeklyCount, user.kakkdugi())
         );
     }
 

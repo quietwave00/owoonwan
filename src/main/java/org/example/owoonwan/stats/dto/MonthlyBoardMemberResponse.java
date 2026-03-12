@@ -6,6 +6,7 @@ public record MonthlyBoardMemberResponse(
         String uid,
         String nickname,
         UserRole role,
-        int monthlyCount
+        int monthlyCount,
+        java.util.List<String> badges
 ) {
 }

@@ -2,6 +2,8 @@ package org.example.owoonwan.auth.service;
 
 import org.example.owoonwan.auth.dto.AuthLoginRequest;
 import org.example.owoonwan.auth.dto.AuthLoginResponse;
+import org.example.owoonwan.auth.dto.AuthMeResponse;
+import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
 import org.example.owoonwan.session.domain.Session;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +35,7 @@ class AuthServiceTest {
     void shouldIssueSessionTokenWhenLoginSucceeds() {
         Instant now = Instant.parse("2026-03-09T00:00:00Z");
         FakeUserRepository userRepository = new FakeUserRepository();
-        userRepository.add(new User("u1", "member01", "nick-1", "테스트1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.add(new User("u1", "member01", "nick-1", "test", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
         FakeSessionRepository sessionRepository = new FakeSessionRepository();
         AuthService authService = new AuthService(
                 userRepository,
@@ -46,7 +49,7 @@ class AuthServiceTest {
         assertEquals("u1", response.uid());
         assertEquals("member01", response.loginId());
         assertEquals("nick-1", response.nicknameId());
-        assertEquals("테스트1", response.nicknameDisplay());
+        assertEquals("test", response.nicknameDisplay());
     }
 
     @Test
@@ -63,6 +66,32 @@ class AuthServiceTest {
         );
 
         assertThrows(BusinessException.class, () -> authService.login(new AuthLoginRequest("member01")));
+    }
+
+    @Test
+    @DisplayName("인증 정보에 담긴 세션 만료 시간을 그대로 반환한다")
+    void shouldReturnMeFromAuthenticatedUser() {
+        Instant now = Instant.parse("2026-03-09T00:00:00Z");
+        AuthService authService = new AuthService(
+                new FakeUserRepository(),
+                new FakeSessionRepository(),
+                new NoopLoginLockRepository(),
+                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
+        );
+
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(
+                "u1",
+                "member01",
+                "nick-1",
+                "test",
+                UserRole.REGULAR,
+                "token-0",
+                now.plus(1, ChronoUnit.DAYS)
+        );
+
+        AuthMeResponse response = authService.me(authenticatedUser);
+
+        assertEquals(now.plus(1, ChronoUnit.DAYS), response.expiresAt());
     }
 
     private static final class FakeUserRepository implements UserRepository {

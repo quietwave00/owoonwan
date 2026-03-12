@@ -70,19 +70,31 @@ public class TitleQueryService {
         return buildResponse(user, resolvedWeekKey, resolvedMonthKey);
     }
 
-    private TitleResponse buildResponse(User user, String weekKey, String monthKey) {
-        TitleRules rules = titleRuleService.getRules();
-        String userId = user.id();
+    public TitleResponse getUserTitles(User user, String weekKey, String monthKey, int weeklyCount, int monthlyCount) {
+        LocalDate today = dateTimeProvider.todayKst();
+        String resolvedWeekKey = (weekKey == null || weekKey.isBlank()) ? toWeekKey(today) : weekKey;
+        String resolvedMonthKey = (monthKey == null || monthKey.isBlank()) ? YearMonth.from(today).format(MONTH_FORMATTER) : monthKey;
+        if (user.status() != UserStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
+        }
+        return buildResponse(user, resolvedWeekKey, resolvedMonthKey, weeklyCount, monthlyCount);
+    }
 
+    private TitleResponse buildResponse(User user, String weekKey, String monthKey) {
         List<Checkin> weeklyCheckins = checkinRepository.findByUserIdAndDateRange(
-                userId,
+                user.id(),
                 parseWeekStart(weekKey).format(DATE_FORMATTER),
                 parseWeekStart(weekKey).plusDays(6).format(DATE_FORMATTER)
         );
-        List<Checkin> monthlyCheckins = checkinRepository.findByUserIdAndMonthKey(userId, parseMonthKey(monthKey).format(MONTH_FORMATTER));
+        List<Checkin> monthlyCheckins = checkinRepository.findByUserIdAndMonthKey(user.id(), parseMonthKey(monthKey).format(MONTH_FORMATTER));
 
-        TitleScopeResponse weekly = weeklyTitleCalculator.calculate(countPresent(weeklyCheckins), rules);
-        TitleScopeResponse monthly = monthlyTitleCalculator.calculate(countPresent(monthlyCheckins), rules);
+        return buildResponse(user, weekKey, monthKey, countPresent(weeklyCheckins), countPresent(monthlyCheckins));
+    }
+
+    private TitleResponse buildResponse(User user, String weekKey, String monthKey, int weeklyCount, int monthlyCount) {
+        TitleRules rules = titleRuleService.getRules();
+        TitleScopeResponse weekly = weeklyTitleCalculator.calculate(weeklyCount, rules);
+        TitleScopeResponse monthly = monthlyTitleCalculator.calculate(monthlyCount, rules);
         SpecialTitleResponse special = specialTitleResolver.resolve(user);
 
         return new TitleResponse(

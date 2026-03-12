@@ -1,16 +1,27 @@
-﻿.admin-kakkdugi-page__list {
-  gap: 12px;
+.admin-kakkdugi-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .admin-kakkdugi-page__item {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex-wrap: nowrap;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid rgba(31, 31, 31, 0.18);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .admin-kakkdugi-page__copy {
   min-width: 0;
-  flex: 1 1 180px;
+  flex: 1 1 auto;
 }
 
 .admin-kakkdugi-page__meta {
@@ -23,9 +34,11 @@
 .admin-kakkdugi-page__control {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   margin-left: auto;
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .admin-kakkdugi-page__switch-wrap {
@@ -98,8 +111,12 @@
 }
 
 @media (max-width: 640px) {
+  .admin-kakkdugi-page__item {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
   .admin-kakkdugi-page__control {
-    width: 100%;
-    justify-content: flex-end;
+    width: auto;
   }
 }

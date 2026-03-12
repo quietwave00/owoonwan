@@ -58,7 +58,7 @@
   --duration-fast: 120ms;
   --duration-normal: 220ms;
   --duration-slow: 400ms;
-  --app-frame-width: 480px;
+  --app-frame-width: 450px;
   color: var(--ink);
   background: var(--cream);
   font-family: var(--font-body);
@@ -129,7 +129,6 @@ img {
 .surface-card,
 .login-card,
 .ui-card,
-.ui-table,
 .ui-side-panel,
 .ui-calendar,
 .toast-card,
@@ -290,7 +289,6 @@ h3,
 .state-card {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-xl);
   background: var(--surface-glass);
 }
 
@@ -605,6 +603,62 @@ h3,
   padding: 28px;
 }
 
+.state-card--loading {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+.ui-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 168px;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(90deg, rgba(232, 232, 232, 0.88) 0%, rgba(243, 243, 243, 0.98) 50%, rgba(232, 232, 232, 0.88) 100%);
+  background-size: 220% 100%;
+  animation: ui-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.ui-skeleton__line {
+  display: block;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.ui-skeleton__line--lg {
+  width: 68%;
+  height: 28px;
+}
+
+.ui-skeleton__line--md {
+  width: 92%;
+}
+
+.ui-skeleton__line--sm {
+  width: 54%;
+}
+
+@keyframes ui-skeleton-pulse {
+  0% {
+    background-position: 100% 50%;
+    opacity: 0.78;
+  }
+
+  50% {
+    background-position: 0% 50%;
+    opacity: 1;
+  }
+
+  100% {
+    background-position: 100% 50%;
+    opacity: 0.78;
+  }
+}
+
 .ui-metric-grid {
   display: grid;
   gap: 16px;
@@ -639,13 +693,14 @@ h3,
 }
 
 .ui-table__inner {
+  font-size: 13px;
   overflow-x: auto;
 }
 
 .ui-table table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 640px;
+  min-width: 300px;
 }
 
 .ui-table th,
@@ -671,21 +726,6 @@ h3,
   display: flex;
   gap: 10px;
   align-items: center;
-}
-
-.ui-avatar {
-  width: 42px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: var(--border-md);
-  background: var(--gray-mid);
-  box-shadow: var(--shadow-sm);
-  font-family: var(--font-hand);
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .ui-dots {
@@ -1077,17 +1117,6 @@ h3,
   }
 
   .topbar,
-  .nav-card,
-  .surface-card,
-  .ui-card,
-  .ui-side-panel,
-  .ui-calendar,
-  .state-card,
-  .login-card {
-    border-radius: var(--radius-lg);
-  }
-
-  .topbar,
   .nav-card {
     padding: 18px;
     flex-direction: column;
@@ -1178,4 +1207,14 @@ h3,
   .login-page {
     box-shadow: 0 0 0 1px rgba(89, 65, 0, 0.08);
   }
+}
+
+.nav-card,
+.surface-card,
+.login-card,
+.ui-card,
+.ui-side-panel,
+.ui-calendar,
+.state-card {
+  border-radius: var(--radius-lg);
 }

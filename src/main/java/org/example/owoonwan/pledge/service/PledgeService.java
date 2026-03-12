@@ -49,17 +49,12 @@ public class PledgeService {
         List<User> activeUsers = userRepository.findAll().stream()
                 .filter(user -> user.status() == UserStatus.ACTIVE)
                 .toList();
-        Map<String, String> nicknameDisplayByUserId = activeUsers.stream()
-                .collect(Collectors.toMap(User::id, User::displayNickname));
 
         return activeUsers.stream()
-                .sorted((left, right) -> KOREAN_COLLATOR.compare(
-                        nicknameDisplayByUserId.getOrDefault(left.id(), ""),
-                        nicknameDisplayByUserId.getOrDefault(right.id(), "")
-                ))
+                .sorted((left, right) -> KOREAN_COLLATOR.compare(left.displayNickname(), right.displayNickname()))
                 .map(user -> toResponse(
                         pledgesByUserId.getOrDefault(user.id(), emptyPledge(user.id())),
-                        nicknameDisplayByUserId.getOrDefault(user.id(), ""),
+                        user.displayNickname(),
                         user.id().equals(viewerUserId)
                 ))
                 .toList();

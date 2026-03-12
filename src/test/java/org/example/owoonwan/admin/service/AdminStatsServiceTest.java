@@ -1,7 +1,7 @@
-package org.example.owoonwan.board.service;
+package org.example.owoonwan.admin.service;
 
-import org.example.owoonwan.auth.dto.AuthenticatedUser;
-import org.example.owoonwan.board.dto.WeeklyBoardResponse;
+import org.example.owoonwan.admin.dto.AdminMonthlyStatsResponse;
+import org.example.owoonwan.admin.dto.AdminWeeklyStatsResponse;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
@@ -25,70 +25,72 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class WeeklyBoardServiceTest {
+class AdminStatsServiceTest {
 
     @Test
-    @DisplayName("주간 보드는 해당 주에 PRESENT 체크인이 있는 활성 사용자만 포함한다")
-    void shouldBuildWeeklyBoardForPresentUsers() {
+    @DisplayName("주간 관리자 통계는 일자 그리드 없이 PRESENT 체크인만 집계한다")
+    void shouldBuildWeeklyAdminStats() {
         Instant now = Instant.parse("2026-03-11T00:00:00Z");
-        InMemoryUserRepository userRepository = new InMemoryUserRepository();
-        userRepository.save(new User("u1", "member01", "n1", "나리", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, true, null));
-        userRepository.save(new User("u3", "member03", "n3", "채린", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
-        userRepository.save(new User("u4", "member04", "n4", "책임", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        AdminStatsService service = createService(now);
 
-        InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
-        checkinRepository.save(new CheckinSaveCommand("u1_20260311", "u1", "2026-03-11", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
-        checkinRepository.save(new CheckinSaveCommand("u2_20260310", "u2", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.PRESENT, Instant.parse("2026-03-10T00:00:00Z")));
-        checkinRepository.save(new CheckinSaveCommand("u3_20260312", "u3", "2026-03-12", "2026-W11", "2026-03", CheckinStatus.PRESENT, Instant.parse("2026-03-12T00:00:00Z")));
-        checkinRepository.save(new CheckinSaveCommand("u4_20260312", "u4", "2026-03-12", "2026-W11", "2026-03", CheckinStatus.ABSENT, Instant.parse("2026-03-12T00:00:00Z")));
-
-        WeeklyBoardService service = new WeeklyBoardService(
-                checkinRepository,
-                userRepository,
-                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC)),
-                createTitleBadgeAssembler()
-        );
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", "나리", UserRole.REGULAR, "token");
-
-        WeeklyBoardResponse response = service.getWeeklyBoard(authenticatedUser, "2026-03-11");
+        AdminWeeklyStatsResponse response = service.getWeeklyStats("2026-03-11");
 
         assertEquals("2026-W11", response.weekKey());
         assertEquals("2026-03-09", response.weekStartDate());
         assertEquals("2026-03-15", response.weekEndDate());
         assertEquals(2, response.members().size());
-        assertEquals("범수", response.members().get(0).nickname());
-        assertEquals(List.of("깍두기", "영혼"), response.members().get(0).badges());
-        assertEquals("나리", response.members().get(1).nickname());
-        assertEquals(List.of("영혼"), response.members().get(1).badges());
-        assertEquals(1, response.members().get(1).weeklyCount());
-        assertTrue(response.members().get(1).days().stream()
-                .filter(day -> "2026-03-11".equals(day.date()))
-                .findFirst()
-                .orElseThrow()
-                .canCheckinAction());
-        assertFalse(response.members().get(0).days().stream()
-                .filter(day -> "2026-03-11".equals(day.date()))
-                .findFirst()
-                .orElseThrow()
-                .canCheckinAction());
+        assertEquals("나리", response.members().get(0).nickname());
+        assertEquals(2, response.members().get(0).count());
+        assertEquals(List.of("영혼"), response.members().get(0).badges());
+        assertEquals("범수", response.members().get(1).nickname());
+        assertEquals(1, response.members().get(1).count());
+        assertEquals(List.of("깍두기", "영혼"), response.members().get(1).badges());
     }
 
-    private TitleBadgeAssembler createTitleBadgeAssembler() {
-        return new TitleBadgeAssembler(
-                new TitleRuleService(new SingleObjectProvider<>(new InMemoryTitleRuleRepository())),
-                new WeeklyTitleCalculator(),
-                new MonthlyTitleCalculator()
+    @Test
+    @DisplayName("월간 관리자 통계는 월 기준으로 PRESENT 체크인을 집계한다")
+    void shouldBuildMonthlyAdminStats() {
+        Instant now = Instant.parse("2026-03-11T00:00:00Z");
+        AdminStatsService service = createService(now);
+
+        AdminMonthlyStatsResponse response = service.getMonthlyStats("2026-03");
+
+        assertEquals("2026-03", response.monthKey());
+        assertEquals(2, response.members().size());
+        assertEquals("나리", response.members().get(0).nickname());
+        assertEquals(2, response.members().get(0).count());
+        assertEquals("범수", response.members().get(1).nickname());
+        assertEquals(1, response.members().get(1).count());
+    }
+
+    private AdminStatsService createService(Instant now) {
+        InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
+        checkinRepository.save(new CheckinSaveCommand("u1_20260310", "u1", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
+        checkinRepository.save(new CheckinSaveCommand("u1_20260311", "u1", "2026-03-11", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
+        checkinRepository.save(new CheckinSaveCommand("u2_20260310", "u2", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
+        checkinRepository.save(new CheckinSaveCommand("u3_20260310", "u3", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.ABSENT, now));
+
+        InMemoryUserRepository userRepository = new InMemoryUserRepository();
+        userRepository.save(new User("u1", "member01", "n1", "나리", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, true, null));
+        userRepository.save(new User("u3", "member03", "n3", "채린", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
+
+        return new AdminStatsService(
+                checkinRepository,
+                userRepository,
+                new TitleBadgeAssembler(
+                        new TitleRuleService(new SingleObjectProvider<>(new InMemoryTitleRuleRepository())),
+                        new WeeklyTitleCalculator(),
+                        new MonthlyTitleCalculator()
+                ),
+                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
     }
 
@@ -119,35 +121,27 @@ class WeeklyBoardServiceTest {
 
         @Override
         public List<Checkin> findByDate(String date) {
-            return store.values().stream()
-                    .filter(checkin -> date.equals(checkin.date()))
-                    .sorted(Comparator.comparing(Checkin::userId))
-                    .toList();
+            return List.of();
         }
 
         @Override
         public List<Checkin> findByUserIdAndDateRange(String userId, String startDate, String endDate) {
-            return store.values().stream()
-                    .filter(checkin -> userId.equals(checkin.userId()))
-                    .filter(checkin -> checkin.date().compareTo(startDate) >= 0 && checkin.date().compareTo(endDate) <= 0)
-                    .sorted(Comparator.comparing(Checkin::date))
-                    .toList();
+            return List.of();
         }
 
         @Override
         public List<Checkin> findByUserIdAndMonthKey(String userId, String monthKey) {
-            return store.values().stream()
-                    .filter(checkin -> userId.equals(checkin.userId()) && monthKey.equals(checkin.monthKey()))
-                    .sorted(Comparator.comparing(Checkin::date))
-                    .toList();
+            return List.of();
         }
 
         @Override
         public List<Checkin> findByWeekKey(String weekKey) {
-            return store.values().stream()
-                    .filter(checkin -> weekKey.equals(checkin.weekKey()))
-                    .sorted(Comparator.comparing(Checkin::userId).thenComparing(Checkin::date))
-                    .toList();
+            return store.values().stream().filter(checkin -> weekKey.equals(checkin.weekKey())).toList();
+        }
+
+        @Override
+        public List<Checkin> findByMonthKey(String monthKey) {
+            return store.values().stream().filter(checkin -> monthKey.equals(checkin.monthKey())).toList();
         }
     }
 
@@ -166,14 +160,12 @@ class WeeklyBoardServiceTest {
 
         @Override
         public Optional<User> findByLoginId(String loginId) {
-            return users.values().stream()
-                    .filter(user -> loginId.equals(user.loginId()))
-                    .findFirst();
+            return Optional.empty();
         }
 
         @Override
         public boolean existsByLoginId(String loginId) {
-            return users.values().stream().anyMatch(user -> loginId.equals(user.loginId()));
+            return false;
         }
 
         @Override

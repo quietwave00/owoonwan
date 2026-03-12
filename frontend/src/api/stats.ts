@@ -1,6 +1,11 @@
 import { adminFetch, apiFetch } from "./client";
-import type { MonthlyBoardResponse, UserMonthlyCalendarResponse, UserSummaryResponse } from "../types/stats";
-import type { WeeklyBoardResponse } from "../types/board";
+import type {
+  AdminMonthlyStatsResponse,
+  AdminWeeklyStatsResponse,
+  MonthlyBoardResponse,
+  UserMonthlyCalendarResponse,
+  UserSummaryResponse,
+} from "../types/stats";
 
 export function getMonthlyBoard(month?: string) {
   const query = month ? `?month=${month}` : "";
@@ -18,10 +23,10 @@ export function getUserSummary(uid: string) {
 
 export function getAdminWeeklyStats(date?: string) {
   const query = date ? `?date=${date}` : "";
-  return adminFetch<WeeklyBoardResponse>(`/admin/stats/weekly${query}`);
+  return adminFetch<AdminWeeklyStatsResponse>(`/admin/stats/weekly${query}`);
 }
 
 export function getAdminMonthlyStats(month?: string) {
   const query = month ? `?month=${month}` : "";
-  return adminFetch<MonthlyBoardResponse>(`/admin/stats/monthly${query}`);
+  return adminFetch<AdminMonthlyStatsResponse>(`/admin/stats/monthly${query}`);
 }

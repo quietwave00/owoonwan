@@ -6,6 +6,7 @@ export type WeeklyBoardMemberResponse = {
   role: "ADMIN" | "REGULAR";
   days: CheckinDayResponse[];
   weeklyCount: number;
+  badges: string[];
 };
 
 export type WeeklyBoardResponse = {

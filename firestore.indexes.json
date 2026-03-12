@@ -51,6 +51,28 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "monthKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "checkins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "weekKey",
           "order": "ASCENDING"
         },

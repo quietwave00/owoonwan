@@ -168,6 +168,18 @@ export function Textarea(props: TextareaProps) {
 }
 
 export function StateCard({ eyebrow, title, description, tone = "info", action }: StateCardProps) {
+  if (tone === "loading") {
+    return (
+      <section className="state-card state-card--loading" aria-label="Loading" aria-busy="true">
+        <div className="ui-skeleton" aria-hidden="true">
+          <span className="ui-skeleton__line ui-skeleton__line--lg" />
+          <span className="ui-skeleton__line ui-skeleton__line--md" />
+          <span className="ui-skeleton__line ui-skeleton__line--sm" />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="state-card">
       <div className={cx("ui-state", `ui-state--${tone}`)}>
@@ -204,7 +216,7 @@ export function ToastStack({ items, onClose }: { items: ToastItem[]; onClose?: (
             <h3 className="toast-card__title">{item.title}</h3>
             <p className="toast-card__description">{item.description}</p>
           </div>
-          <button className="toast-card__close" type="button" aria-label="닫기" onClick={() => onClose?.(item.id)}>x</button>
+          <button className="toast-card__close" type="button" aria-label="?リ린" onClick={() => onClose?.(item.id)}>x</button>
         </div>
       ))}
     </div>

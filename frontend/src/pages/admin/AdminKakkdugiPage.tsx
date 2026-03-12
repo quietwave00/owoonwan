@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { assignKakkdugi, getAdminNicknames, getAdminUsers, revokeKakkdugi } from "../../api/admin";
 import { queryKeys } from "../../api/queryKeys";
@@ -119,12 +119,12 @@ export function AdminKakkdugiPage() {
           actions={""}
         />
 
-        <div className="ui-stack admin-kakkdugi-page__list" style={{ marginTop: 20 }}>
+        <div className="admin-kakkdugi-page__list" style={{ marginTop: 20 }}>
           {members.map((member) => {
             const isPending = toggleMutation.isPending && toggleMutation.variables?.uid === member.uid;
 
             return (
-              <label key={member.uid} className="ui-list-item admin-kakkdugi-page__item" style={{ cursor: isPending ? "progress" : "pointer" }}>
+              <label key={member.uid} className="admin-kakkdugi-page__item" style={{ cursor: isPending ? "progress" : "pointer" }}>
                 <div className="admin-kakkdugi-page__copy">
                   <strong>{member.displayName}</strong>
                   <p className="admin-kakkdugi-page__meta">

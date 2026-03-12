@@ -2,10 +2,10 @@ package org.example.owoonwan.admin.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.admin.AdminGuard;
+import org.example.owoonwan.admin.dto.AdminMonthlyStatsResponse;
+import org.example.owoonwan.admin.dto.AdminWeeklyStatsResponse;
 import org.example.owoonwan.admin.service.AdminStatsService;
-import org.example.owoonwan.board.dto.WeeklyBoardResponse;
 import org.example.owoonwan.common.response.ApiResponse;
-import org.example.owoonwan.stats.dto.MonthlyBoardResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,7 +21,7 @@ public class AdminStatsController {
     private final AdminStatsService adminStatsService;
 
     @GetMapping("/weekly")
-    public ApiResponse<WeeklyBoardResponse> getWeeklyStats(
+    public ApiResponse<AdminWeeklyStatsResponse> getWeeklyStats(
             @RequestHeader(value = "X-Role", required = false) String roleHeader,
             @RequestParam(value = "date", required = false) String date
     ) {
@@ -30,7 +30,7 @@ public class AdminStatsController {
     }
 
     @GetMapping("/monthly")
-    public ApiResponse<MonthlyBoardResponse> getMonthlyStats(
+    public ApiResponse<AdminMonthlyStatsResponse> getMonthlyStats(
             @RequestHeader(value = "X-Role", required = false) String roleHeader,
             @RequestParam(value = "month", required = false) String month
     ) {

@@ -14,6 +14,7 @@ import org.example.owoonwan.stats.dto.MonthlyBoardResponse;
 import org.example.owoonwan.stats.dto.UserMonthlyCalendarResponse;
 import org.example.owoonwan.stats.dto.UserSummaryResponse;
 import org.example.owoonwan.time.TimeKeyUtil;
+import org.example.owoonwan.title.service.TitleBadgeAssembler;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserStatus;
 import org.example.owoonwan.user.repository.UserRepository;
@@ -42,14 +43,16 @@ public class StatsQueryService {
     private final CheckinRepository checkinRepository;
     private final UserRepository userRepository;
     private final KstDateTimeProvider dateTimeProvider;
+    private final TitleBadgeAssembler titleBadgeAssembler;
 
     public MonthlyBoardResponse getMonthlyBoard(String month) {
         YearMonth targetMonth = parseMonthOrCurrent(month);
         String monthKey = targetMonth.format(MONTH_FORMATTER);
+        Map<String, Integer> presentCountsByUserId = countPresentByUserId(checkinRepository.findByMonthKey(monthKey));
 
         List<MonthlyBoardMemberResponse> members = userRepository.findAll().stream()
                 .filter(user -> user.status() == UserStatus.ACTIVE)
-                .map(user -> toMonthlyBoardMember(user, monthKey))
+                .map(user -> toMonthlyBoardMember(user, presentCountsByUserId))
                 .sorted(Comparator.comparingInt(MonthlyBoardMemberResponse::monthlyCount).reversed()
                         .thenComparing(MonthlyBoardMemberResponse::nickname))
                 .toList();
@@ -109,13 +112,14 @@ public class StatsQueryService {
         );
     }
 
-    private MonthlyBoardMemberResponse toMonthlyBoardMember(User user, String monthKey) {
-        int monthlyCount = countPresent(checkinRepository.findByUserIdAndMonthKey(user.id(), monthKey));
+    private MonthlyBoardMemberResponse toMonthlyBoardMember(User user, Map<String, Integer> presentCountsByUserId) {
+        int monthlyCount = presentCountsByUserId.getOrDefault(user.id(), 0);
         return new MonthlyBoardMemberResponse(
                 user.id(),
                 user.displayNickname(),
                 user.role(),
-                monthlyCount
+                monthlyCount,
+                titleBadgeAssembler.buildMonthlyBadges(monthlyCount, user.kakkdugi())
         );
     }
 
@@ -162,6 +166,17 @@ public class StatsQueryService {
         return (int) checkins.stream()
                 .filter(checkin -> checkin.status() == CheckinStatus.PRESENT)
                 .count();
+    }
+
+    private Map<String, Integer> countPresentByUserId(List<Checkin> checkins) {
+        Map<String, Integer> presentCounts = new LinkedHashMap<>();
+        for (Checkin checkin : checkins) {
+            if (checkin.status() != CheckinStatus.PRESENT) {
+                continue;
+            }
+            presentCounts.merge(checkin.userId(), 1, Integer::sum);
+        }
+        return presentCounts;
     }
 
     private User getActiveUser(String userId) {

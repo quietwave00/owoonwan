@@ -189,7 +189,7 @@ export function WeeklyBoardPage() {
                 <span className="weekly-board-row__count">{column.count}명</span>
               </div>
               <div className="weekly-board-row__members">
-                {column.nicknames.length > 0 ? column.nicknames.join(" / ") : "없음"}
+                {column.nicknames.length > 0 ? column.nicknames.join(" / ") : "-"}
               </div>
             </article>
           ))}

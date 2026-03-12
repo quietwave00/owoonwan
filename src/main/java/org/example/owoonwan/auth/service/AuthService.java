@@ -25,6 +25,7 @@ import java.time.temporal.ChronoUnit;
 public class AuthService {
 
     private static final long LOGIN_LOCK_SECONDS = 5;
+    private static final long LAST_SEEN_TOUCH_INTERVAL_SECONDS = 300;
     private static final Instant SESSION_MAX_EXPIRES_AT = Instant.parse("9999-12-31T23:59:59Z");
 
     private final UserRepository userRepository;
@@ -80,15 +81,13 @@ public class AuthService {
     }
 
     public AuthMeResponse me(AuthenticatedUser authenticatedUser) {
-        Session session = sessionRepository.findByToken(authenticatedUser.token())
-                .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_NOT_FOUND));
         return new AuthMeResponse(
                 authenticatedUser.userId(),
                 authenticatedUser.loginId(),
                 authenticatedUser.nicknameId(),
                 authenticatedUser.nicknameDisplay(),
                 authenticatedUser.role(),
-                session.expiresAt()
+                authenticatedUser.expiresAt()
         );
     }
 
@@ -111,15 +110,23 @@ public class AuthService {
             throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
         }
 
-        sessionRepository.touchLastSeen(token, now);
+        if (shouldTouchLastSeen(session, now)) {
+            sessionRepository.touchLastSeen(token, now);
+        }
         return new AuthenticatedUser(
                 user.id(),
                 user.loginId(),
                 user.nicknameId(),
                 user.nicknameDisplay(),
                 user.role(),
-                token
+                token,
+                session.expiresAt()
         );
+    }
+
+    private boolean shouldTouchLastSeen(Session session, Instant now) {
+        Instant lastSeenAt = session.lastSeenAt();
+        return lastSeenAt == null || lastSeenAt.plus(LAST_SEEN_TOUCH_INTERVAL_SECONDS, ChronoUnit.SECONDS).isBefore(now);
     }
 
     private String extractBearerToken(String authorizationHeader) {

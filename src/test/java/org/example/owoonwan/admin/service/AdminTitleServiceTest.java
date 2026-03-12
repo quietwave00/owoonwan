@@ -42,9 +42,11 @@ class AdminTitleServiceTest {
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
         Instant now = Instant.parse("2026-03-11T00:00:00Z");
         userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        InMemoryCheckinRepository checkinRepository = createCheckinRepository(now);
 
         AdminTitleService service = new AdminTitleService(
                 userRepository,
+                checkinRepository,
                 createTitleQueryService(userRepository, now),
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
@@ -61,9 +63,11 @@ class AdminTitleServiceTest {
         userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
         userRepository.save(new User("u2", "member02", "n2", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, true, null));
         userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
+        InMemoryCheckinRepository checkinRepository = createCheckinRepository(now);
 
         AdminTitleService service = new AdminTitleService(
                 userRepository,
+                checkinRepository,
                 createTitleQueryService(userRepository, now),
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
@@ -75,15 +79,18 @@ class AdminTitleServiceTest {
         assertEquals("u2", titles.get(1).uid());
     }
 
-    private TitleQueryService createTitleQueryService(UserRepository userRepository, Instant now) {
+    private InMemoryCheckinRepository createCheckinRepository(Instant now) {
         InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
         checkinRepository.save(new CheckinSaveCommand("u1_20260309", "u1", "2026-03-09", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
         checkinRepository.save(new CheckinSaveCommand("u1_20260310", "u1", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
         checkinRepository.save(new CheckinSaveCommand("u1_20260311", "u1", "2026-03-11", "2026-W11", "2026-03", CheckinStatus.PRESENT, now));
         checkinRepository.save(new CheckinSaveCommand("u2_20260310", "u2", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.ABSENT, now));
+        return checkinRepository;
+    }
 
+    private TitleQueryService createTitleQueryService(UserRepository userRepository, Instant now) {
         return new TitleQueryService(
-                checkinRepository,
+                createCheckinRepository(now),
                 userRepository,
                 new TitleRuleService(new SingleObjectProvider<>(new InMemoryTitleRuleRepository())),
                 new WeeklyTitleCalculator(),
@@ -142,7 +149,16 @@ class AdminTitleServiceTest {
 
         @Override
         public List<Checkin> findByWeekKey(String weekKey) {
-            return List.of();
+            return store.values().stream()
+                    .filter(checkin -> weekKey.equals(checkin.weekKey()))
+                    .toList();
+        }
+
+        @Override
+        public List<Checkin> findByMonthKey(String monthKey) {
+            return store.values().stream()
+                    .filter(checkin -> monthKey.equals(checkin.monthKey()))
+                    .toList();
         }
     }
 
