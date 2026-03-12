@@ -1,0 +1,10 @@
+.git
+.github
+.gradle
+.gradle-user-home
+.idea
+build
+frontend
+img.png
+img_1.png
+*.log

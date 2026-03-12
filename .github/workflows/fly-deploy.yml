@@ -1,0 +1,69 @@
+name: Fly Deploy
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: fly-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x ./gradlew
+
+      - name: Verify backend
+        run: ./gradlew compileTestJava --no-daemon
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: github.event_name != 'pull_request'
+
+      - name: Deploy backend to Fly.io
+        if: github.event_name != 'pull_request'
+        run: flyctl deploy --remote-only --config fly.backend.toml --app "${{ vars.FLY_BACKEND_APP_NAME }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_BACKEND }}
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.FLY_FRONTEND_API_BASE_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: github.event_name != 'pull_request'
+
+      - name: Deploy frontend to Fly.io
+        if: github.event_name != 'pull_request'
+        working-directory: frontend
+        run: flyctl deploy --remote-only --config fly.toml --app "${{ vars.FLY_FRONTEND_APP_NAME }}" --build-arg VITE_API_BASE_URL="${{ vars.FLY_FRONTEND_API_BASE_URL }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_FRONTEND }}
