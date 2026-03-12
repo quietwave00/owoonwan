@@ -32,7 +32,7 @@ class AuthServiceTest {
     void shouldIssueSessionTokenWhenLoginSucceeds() {
         Instant now = Instant.parse("2026-03-09T00:00:00Z");
         FakeUserRepository userRepository = new FakeUserRepository();
-        userRepository.add(new User("u1", "member01", "nick-1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.add(new User("u1", "member01", "nick-1", "테스트1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
         FakeSessionRepository sessionRepository = new FakeSessionRepository();
         AuthService authService = new AuthService(
                 userRepository,
@@ -46,6 +46,7 @@ class AuthServiceTest {
         assertEquals("u1", response.uid());
         assertEquals("member01", response.loginId());
         assertEquals("nick-1", response.nicknameId());
+        assertEquals("테스트1", response.nicknameDisplay());
     }
 
     @Test
@@ -119,6 +120,7 @@ class AuthServiceTest {
                     user.id(),
                     user.loginId(),
                     user.nicknameId(),
+                    user.nicknameDisplay(),
                     user.role(),
                     user.status(),
                     user.createdAt(),

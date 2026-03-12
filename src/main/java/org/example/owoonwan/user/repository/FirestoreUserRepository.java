@@ -17,8 +17,10 @@ import org.example.owoonwan.user.domain.UserStatus;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +65,43 @@ public class FirestoreUserRepository implements UserRepository {
         return !FirestoreAwait.get(
                 users().whereEqualTo("loginId", loginId).limit(1).get()
         ).isEmpty();
+    }
+
+    @Override
+    public List<User> findByIds(List<String> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, DocumentReference> refsById = new LinkedHashMap<>();
+        for (String userId : userIds) {
+            if (userId == null || userId.isBlank() || refsById.containsKey(userId)) {
+                continue;
+            }
+            refsById.put(userId, users().document(userId));
+        }
+        if (refsById.isEmpty()) {
+            return List.of();
+        }
+
+        List<DocumentSnapshot> snapshots = FirestoreAwait.get(
+                firestore.getAll(refsById.values().toArray(DocumentReference[]::new))
+        );
+        Map<String, User> usersById = new HashMap<>();
+        for (DocumentSnapshot snapshot : snapshots) {
+            if (snapshot.exists()) {
+                usersById.put(snapshot.getId(), toUser(snapshot));
+            }
+        }
+
+        List<User> orderedUsers = new ArrayList<>();
+        for (String userId : refsById.keySet()) {
+            User user = usersById.get(userId);
+            if (user != null) {
+                orderedUsers.add(user);
+            }
+        }
+        return List.copyOf(orderedUsers);
     }
 
     @Override
@@ -112,6 +151,7 @@ public class FirestoreUserRepository implements UserRepository {
         updates.put("status", UserStatus.DELETED.name());
         updates.put("deletedAt", Date.from(now));
         updates.put("nicknameId", null);
+        updates.put("nicknameDisplay", null);
         FirestoreAwait.get(userRef.update(updates));
 
         return toUser(FirestoreAwait.get(userRef.get()));
@@ -146,6 +186,7 @@ public class FirestoreUserRepository implements UserRepository {
         Map<String, Object> payload = new HashMap<>();
         payload.put("loginId", loginId);
         payload.put("nicknameId", null);
+        payload.put("nicknameDisplay", null);
         payload.put("role", role.name());
         payload.put("status", UserStatus.ACTIVE.name());
         payload.put("createdAt", Date.from(now));
@@ -170,6 +211,7 @@ public class FirestoreUserRepository implements UserRepository {
                 snapshot.getId(),
                 snapshot.getString("loginId"),
                 snapshot.getString("nicknameId"),
+                snapshot.getString("nicknameDisplay"),
                 UserRole.valueOf(snapshot.getString("role")),
                 UserStatus.valueOf(snapshot.getString("status")),
                 createdAt == null ? null : createdAt.toDate().toInstant(),

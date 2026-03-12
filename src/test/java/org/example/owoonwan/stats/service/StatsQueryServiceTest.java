@@ -1,12 +1,19 @@
 package org.example.owoonwan.stats.service;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.stats.dto.MonthlyBoardResponse;
 import org.example.owoonwan.stats.dto.UserMonthlyCalendarResponse;
 import org.example.owoonwan.stats.dto.UserSummaryResponse;
@@ -17,22 +24,12 @@ import org.example.owoonwan.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StatsQueryServiceTest {
 
     @Test
-    @DisplayName("월간 보드는 활성 사용자별 월간 출석 수를 정렬해서 내려준다")
+    @DisplayName("월간 보드는 active 사용자만 nicknameDisplay와 count로 정렬한다")
     void shouldBuildMonthlyBoard() {
         StatsQueryService service = createService();
 
@@ -47,7 +44,7 @@ class StatsQueryServiceTest {
     }
 
     @Test
-    @DisplayName("멤버 월간 캘린더는 월간 합계와 주차별 합계를 함께 내려준다")
+    @DisplayName("멤버 월간 캘린더는 monthlyCount와 주차별 집계를 반환한다")
     void shouldBuildUserMonthlyCalendar() {
         StatsQueryService service = createService();
 
@@ -67,7 +64,7 @@ class StatsQueryServiceTest {
     }
 
     @Test
-    @DisplayName("summary는 현재와 이전 주차 및 월간 출석 수를 내려준다")
+    @DisplayName("summary는 현재/이전 주차와 월간 출석 수를 반환한다")
     void shouldBuildUserSummary() {
         StatsQueryService service = createService();
 
@@ -89,14 +86,9 @@ class StatsQueryServiceTest {
         Instant now = Instant.parse("2026-03-11T00:00:00Z");
 
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
-        userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
-
-        InMemoryNicknameRepository nicknameRepository = new InMemoryNicknameRepository();
-        nicknameRepository.save(new Nickname("n1", "나리", true, "u1", now, now));
-        nicknameRepository.save(new Nickname("n2", "범수", true, "u2", now, now));
-        nicknameRepository.save(new Nickname("n3", "채린", true, "u3", now, now));
+        userRepository.save(new User("u1", "member01", "n1", "나리", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u3", "member03", "n3", "채린", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
 
         InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
         checkinRepository.save(new CheckinSaveCommand("u1_20260310", "u1", "2026-03-10", "2026-W11", "2026-03", CheckinStatus.PRESENT, Instant.parse("2026-03-10T00:00:00Z")));
@@ -107,7 +99,6 @@ class StatsQueryServiceTest {
         return new StatsQueryService(
                 checkinRepository,
                 userRepository,
-                nicknameRepository,
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
     }
@@ -213,47 +204,6 @@ class StatsQueryServiceTest {
 
         void save(User user) {
             users.put(user.id(), user);
-        }
-    }
-
-    private static final class InMemoryNicknameRepository implements NicknameRepository {
-        private final Map<String, Nickname> nicknames = new HashMap<>();
-
-        @Override
-        public String create(String display, Instant now) {
-            return null;
-        }
-
-        @Override
-        public Optional<Nickname> findById(String nicknameId) {
-            return Optional.ofNullable(nicknames.get(nicknameId));
-        }
-
-        @Override
-        public List<Nickname> findAll() {
-            return new ArrayList<>(nicknames.values());
-        }
-
-        @Override
-        public List<Nickname> findAllActive() {
-            return nicknames.values().stream().filter(Nickname::active).toList();
-        }
-
-        @Override
-        public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-            return nicknames.get(nicknameId);
-        }
-
-        @Override
-        public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        }
-
-        @Override
-        public void clearAssignment(String userId, Instant now) {
-        }
-
-        void save(Nickname nickname) {
-            nicknames.put(nickname.id(), nickname);
         }
     }
 }

@@ -7,8 +7,6 @@ import org.example.owoonwan.checkin.domain.CheckinStatus;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserRole;
 import org.example.owoonwan.user.domain.UserStatus;
@@ -33,18 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WeeklyBoardServiceTest {
 
     @Test
-    @DisplayName("주간 보드는 활성 사용자별 주간 합계와 체크인 가능 여부를 내려준다")
-    void shouldBuildWeeklyBoardForActiveUsers() {
+    @DisplayName("weekly board includes only active users with PRESENT checkins in the week")
+    void shouldBuildWeeklyBoardForPresentUsers() {
         Instant now = Instant.parse("2026-03-11T00:00:00Z");
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
-        userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
-
-        InMemoryNicknameRepository nicknameRepository = new InMemoryNicknameRepository();
-        nicknameRepository.save(new Nickname("n1", "나리", true, "u1", now, now));
-        nicknameRepository.save(new Nickname("n2", "범수", true, "u2", now, now));
-        nicknameRepository.save(new Nickname("n3", "채린", true, "u3", now, now));
+        userRepository.save(new User("u1", "member01", "n1", "sari", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", "beom", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u3", "member03", "n3", "chaerin", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
+        userRepository.save(new User("u4", "member04", "n4", "doyoon", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
 
         InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
         checkinRepository.save(new CheckinSaveCommand(
@@ -65,14 +59,31 @@ class WeeklyBoardServiceTest {
                 CheckinStatus.PRESENT,
                 Instant.parse("2026-03-10T00:00:00Z")
         ));
+        checkinRepository.save(new CheckinSaveCommand(
+                "u3_20260312",
+                "u3",
+                "2026-03-12",
+                "2026-W11",
+                "2026-03",
+                CheckinStatus.PRESENT,
+                Instant.parse("2026-03-12T00:00:00Z")
+        ));
+        checkinRepository.save(new CheckinSaveCommand(
+                "u4_20260312",
+                "u4",
+                "2026-03-12",
+                "2026-W11",
+                "2026-03",
+                CheckinStatus.ABSENT,
+                Instant.parse("2026-03-12T00:00:00Z")
+        ));
 
         WeeklyBoardService service = new WeeklyBoardService(
                 checkinRepository,
                 userRepository,
-                nicknameRepository,
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", UserRole.REGULAR, "token");
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser("u1", "member01", "n1", "sari", UserRole.REGULAR, "token");
 
         WeeklyBoardResponse response = service.getWeeklyBoard(authenticatedUser, "2026-03-11");
 
@@ -80,14 +91,15 @@ class WeeklyBoardServiceTest {
         assertEquals("2026-03-09", response.weekStartDate());
         assertEquals("2026-03-15", response.weekEndDate());
         assertEquals(2, response.members().size());
-        assertEquals("나리", response.members().get(0).nickname());
-        assertEquals(1, response.members().get(0).weeklyCount());
-        assertTrue(response.members().get(0).days().stream()
+        assertEquals("beom", response.members().get(0).nickname());
+        assertEquals("sari", response.members().get(1).nickname());
+        assertEquals(1, response.members().get(1).weeklyCount());
+        assertTrue(response.members().get(1).days().stream()
                 .filter(day -> "2026-03-11".equals(day.date()))
                 .findFirst()
                 .orElseThrow()
                 .canCheckinAction());
-        assertFalse(response.members().get(1).days().stream()
+        assertFalse(response.members().get(0).days().stream()
                 .filter(day -> "2026-03-11".equals(day.date()))
                 .findFirst()
                 .orElseThrow()
@@ -197,47 +209,6 @@ class WeeklyBoardServiceTest {
 
         void save(User user) {
             users.put(user.id(), user);
-        }
-    }
-
-    private static final class InMemoryNicknameRepository implements NicknameRepository {
-        private final Map<String, Nickname> nicknames = new HashMap<>();
-
-        @Override
-        public String create(String display, Instant now) {
-            return null;
-        }
-
-        @Override
-        public Optional<Nickname> findById(String nicknameId) {
-            return Optional.ofNullable(nicknames.get(nicknameId));
-        }
-
-        @Override
-        public List<Nickname> findAll() {
-            return new ArrayList<>(nicknames.values());
-        }
-
-        @Override
-        public List<Nickname> findAllActive() {
-            return nicknames.values().stream().filter(Nickname::active).toList();
-        }
-
-        @Override
-        public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-            return nicknames.get(nicknameId);
-        }
-
-        @Override
-        public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        }
-
-        @Override
-        public void clearAssignment(String userId, Instant now) {
-        }
-
-        void save(Nickname nickname) {
-            nicknames.put(nickname.id(), nickname);
         }
     }
 }

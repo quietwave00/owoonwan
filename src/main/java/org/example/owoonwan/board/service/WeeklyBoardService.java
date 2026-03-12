@@ -11,8 +11,6 @@ import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.time.TimeKeyUtil;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserStatus;
@@ -25,7 +23,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +36,6 @@ public class WeeklyBoardService {
 
     private final CheckinRepository checkinRepository;
     private final UserRepository userRepository;
-    private final NicknameRepository nicknameRepository;
     private final KstDateTimeProvider dateTimeProvider;
 
     public WeeklyBoardResponse getWeeklyBoard(AuthenticatedUser authenticatedUser, String date) {
@@ -48,12 +44,18 @@ public class WeeklyBoardService {
         LocalDate weekEnd = weekStart.plusDays(6);
         String weekKey = TimeKeyUtil.deriveWeekKey(weekStart.atStartOfDay(KST_ZONE).toInstant());
 
-        Map<String, Checkin> checkinsBySlot = checkinRepository.findByWeekKey(weekKey).stream()
+        List<Checkin> weeklyCheckins = checkinRepository.findByWeekKey(weekKey);
+        Map<String, Checkin> checkinsBySlot = weeklyCheckins.stream()
                 .collect(LinkedHashMap::new, (map, checkin) -> map.put(checkin.userId() + "|" + checkin.date(), checkin), Map::putAll);
+        List<String> presentUserIds = weeklyCheckins.stream()
+                .filter(checkin -> checkin.status() == CheckinStatus.PRESENT)
+                .map(Checkin::userId)
+                .distinct()
+                .toList();
 
-        List<WeeklyBoardMemberResponse> members = userRepository.findAll().stream()
+        List<WeeklyBoardMemberResponse> members = userRepository.findByIds(presentUserIds).stream()
                 .filter(user -> user.status() == UserStatus.ACTIVE)
-                .sorted(Comparator.comparing(user -> resolveNicknameDisplay(user.nicknameId())))
+                .sorted(java.util.Comparator.comparing(User::displayNickname))
                 .map(user -> toMemberResponse(user, authenticatedUser.userId(), weekStart, weekEnd, checkinsBySlot))
                 .toList();
 
@@ -85,7 +87,7 @@ public class WeeklyBoardService {
         int weeklyCount = (int) days.stream().filter(day -> day.status() == CheckinStatus.PRESENT).count();
         return new WeeklyBoardMemberResponse(
                 user.id(),
-                resolveNicknameDisplay(user.nicknameId()),
+                user.displayNickname(),
                 user.role(),
                 days,
                 weeklyCount
@@ -103,12 +105,4 @@ public class WeeklyBoardService {
         }
     }
 
-    private String resolveNicknameDisplay(String nicknameId) {
-        if (nicknameId == null || nicknameId.isBlank()) {
-            return "";
-        }
-        return nicknameRepository.findById(nicknameId)
-                .map(Nickname::display)
-                .orElse(nicknameId);
-    }
 }

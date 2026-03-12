@@ -1,10 +1,17 @@
 package org.example.owoonwan.pledge.service;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.pledge.domain.Pledge;
 import org.example.owoonwan.pledge.dto.PledgeResponse;
 import org.example.owoonwan.pledge.dto.PledgeUpdateRequest;
@@ -15,16 +22,6 @@ import org.example.owoonwan.user.domain.UserStatus;
 import org.example.owoonwan.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -40,14 +37,14 @@ class PledgeServiceTest {
         PledgeResponse response = service.getMyPledge(authenticatedUser("u1"));
 
         assertEquals("u1", response.uid());
-        assertEquals("하리", response.nickname());
+        assertEquals("나리", response.nickname());
         assertEquals("", response.text());
         assertEquals(0, response.version());
         assertNull(response.updatedAt());
     }
 
     @Test
-    @DisplayName("내 다짐 저장 시 trim 후 version을 증가시킨다")
+    @DisplayName("내 다짐 저장은 trim과 version 증가를 반영한다")
     void shouldTrimTextAndIncrementVersionWhenUpdatingPledge() {
         PledgeService service = createService();
 
@@ -61,7 +58,7 @@ class PledgeServiceTest {
     }
 
     @Test
-    @DisplayName("전체 다짐 목록은 활성 사용자 기준 닉네임 순으로 내려준다")
+    @DisplayName("전체 다짐 목록은 active 사용자 기준 nicknameDisplay 순으로 반환한다")
     void shouldListPledgesForActiveUsersInNicknameOrder() {
         PledgeService service = createService();
         service.upsertMyPledge(authenticatedUser("u2"), new PledgeUpdateRequest("다짐 B"));
@@ -71,7 +68,7 @@ class PledgeServiceTest {
         assertEquals(2, responses.size());
         assertEquals("범수", responses.get(0).nickname());
         assertEquals("다짐 B", responses.get(0).text());
-        assertEquals("하리", responses.get(1).nickname());
+        assertEquals("나리", responses.get(1).nickname());
         assertEquals(true, responses.get(1).mine());
         assertEquals("", responses.get(1).text());
     }
@@ -90,7 +87,7 @@ class PledgeServiceTest {
     }
 
     @Test
-    @DisplayName("text가 null이면 저장을 거부한다")
+    @DisplayName("text가 null이면 요청을 거부한다")
     void shouldRejectNullText() {
         PledgeService service = createService();
 
@@ -100,19 +97,13 @@ class PledgeServiceTest {
     private PledgeService createService() {
         Instant now = Instant.parse("2026-03-10T00:00:00Z");
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
-        userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
-
-        InMemoryNicknameRepository nicknameRepository = new InMemoryNicknameRepository();
-        nicknameRepository.save(new Nickname("n1", "하리", true, "u1", now, now));
-        nicknameRepository.save(new Nickname("n2", "범수", true, "u2", now, now));
-        nicknameRepository.save(new Nickname("n3", "채린", true, "u3", now, now));
+        userRepository.save(new User("u1", "member01", "n1", "나리", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u3", "member03", "n3", "채린", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
 
         return new PledgeService(
                 new InMemoryPledgeRepository(),
                 userRepository,
-                nicknameRepository,
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
     }
@@ -201,47 +192,6 @@ class PledgeServiceTest {
 
         void save(User user) {
             users.put(user.id(), user);
-        }
-    }
-
-    private static final class InMemoryNicknameRepository implements NicknameRepository {
-        private final Map<String, Nickname> nicknames = new HashMap<>();
-
-        @Override
-        public String create(String display, Instant now) {
-            return null;
-        }
-
-        @Override
-        public Optional<Nickname> findById(String nicknameId) {
-            return Optional.ofNullable(nicknames.get(nicknameId));
-        }
-
-        @Override
-        public List<Nickname> findAll() {
-            return new ArrayList<>(nicknames.values());
-        }
-
-        @Override
-        public List<Nickname> findAllActive() {
-            return nicknames.values().stream().filter(Nickname::active).toList();
-        }
-
-        @Override
-        public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-            return nicknames.get(nicknameId);
-        }
-
-        @Override
-        public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        }
-
-        @Override
-        public void clearAssignment(String userId, Instant now) {
-        }
-
-        void save(Nickname nickname) {
-            nicknames.put(nickname.id(), nickname);
         }
     }
 }

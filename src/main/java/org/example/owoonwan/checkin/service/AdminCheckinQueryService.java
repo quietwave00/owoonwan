@@ -8,8 +8,6 @@ import org.example.owoonwan.checkin.dto.AdminCheckinUserStatusResponse;
 import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserStatus;
 import org.example.owoonwan.user.repository.UserRepository;
@@ -35,7 +33,6 @@ public class AdminCheckinQueryService {
 
     private final CheckinRepository checkinRepository;
     private final UserRepository userRepository;
-    private final NicknameRepository nicknameRepository;
 
     public AdminCheckinDateResponse getCheckinsByDate(String date) {
         LocalDate targetDate = parseDate(date);
@@ -45,7 +42,7 @@ public class AdminCheckinQueryService {
 
         List<AdminCheckinUserStatusResponse> users = userRepository.findAll().stream()
                 .filter(user -> user.status() == UserStatus.ACTIVE)
-                .sorted(Comparator.comparing(this::resolveNicknameDisplay, KOREAN_COLLATOR))
+                .sorted(Comparator.comparing(User::displayNickname, KOREAN_COLLATOR))
                 .map(user -> toResponse(user, checkinsByUserId.get(user.id())))
                 .toList();
 
@@ -57,21 +54,12 @@ public class AdminCheckinQueryService {
         CheckinStatus status = checkin == null ? CheckinStatus.ABSENT : checkin.status();
         return new AdminCheckinUserStatusResponse(
                 user.id(),
-                resolveNicknameDisplay(user),
+                user.displayNickname(),
                 user.role(),
                 status,
                 status == CheckinStatus.PRESENT,
                 checkin == null ? null : checkin.checkedAt()
         );
-    }
-
-    private String resolveNicknameDisplay(User user) {
-        if (user.nicknameId() == null || user.nicknameId().isBlank()) {
-            return "";
-        }
-        return nicknameRepository.findById(user.nicknameId())
-                .map(Nickname::display)
-                .orElse(user.nicknameId());
     }
 
     private LocalDate parseDate(String date) {

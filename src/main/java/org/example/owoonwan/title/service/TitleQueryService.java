@@ -45,24 +45,34 @@ public class TitleQueryService {
 
     public TitleResponse getMyCurrentWeek(AuthenticatedUser authenticatedUser) {
         LocalDate today = dateTimeProvider.todayKst();
-        return buildResponse(authenticatedUser.userId(), toWeekKey(today), YearMonth.from(today).format(MONTH_FORMATTER));
+        return buildResponse(getActiveUser(authenticatedUser.userId()), toWeekKey(today), YearMonth.from(today).format(MONTH_FORMATTER));
     }
 
     public TitleResponse getMyCurrentMonth(AuthenticatedUser authenticatedUser) {
         LocalDate today = dateTimeProvider.todayKst();
-        return buildResponse(authenticatedUser.userId(), toWeekKey(today), YearMonth.from(today).format(MONTH_FORMATTER));
+        return buildResponse(getActiveUser(authenticatedUser.userId()), toWeekKey(today), YearMonth.from(today).format(MONTH_FORMATTER));
     }
 
     public TitleResponse getUserTitles(String userId, String weekKey, String monthKey) {
         LocalDate today = dateTimeProvider.todayKst();
         String resolvedWeekKey = (weekKey == null || weekKey.isBlank()) ? toWeekKey(today) : weekKey;
         String resolvedMonthKey = (monthKey == null || monthKey.isBlank()) ? YearMonth.from(today).format(MONTH_FORMATTER) : monthKey;
-        return buildResponse(userId, resolvedWeekKey, resolvedMonthKey);
+        return buildResponse(getActiveUser(userId), resolvedWeekKey, resolvedMonthKey);
     }
 
-    private TitleResponse buildResponse(String userId, String weekKey, String monthKey) {
-        User user = getActiveUser(userId);
+    public TitleResponse getUserTitles(User user, String weekKey, String monthKey) {
+        LocalDate today = dateTimeProvider.todayKst();
+        String resolvedWeekKey = (weekKey == null || weekKey.isBlank()) ? toWeekKey(today) : weekKey;
+        String resolvedMonthKey = (monthKey == null || monthKey.isBlank()) ? YearMonth.from(today).format(MONTH_FORMATTER) : monthKey;
+        if (user.status() != UserStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
+        }
+        return buildResponse(user, resolvedWeekKey, resolvedMonthKey);
+    }
+
+    private TitleResponse buildResponse(User user, String weekKey, String monthKey) {
         TitleRules rules = titleRuleService.getRules();
+        String userId = user.id();
 
         List<Checkin> weeklyCheckins = checkinRepository.findByUserIdAndDateRange(
                 userId,

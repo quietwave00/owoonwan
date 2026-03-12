@@ -7,6 +7,7 @@ public record AuthLoginResponse(
         Instant expiresAt,
         String uid,
         String loginId,
-        String nicknameId
+        String nicknameId,
+        String nicknameDisplay
 ) {
 }

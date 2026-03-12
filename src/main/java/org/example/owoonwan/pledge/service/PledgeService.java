@@ -5,8 +5,6 @@ import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.pledge.domain.Pledge;
 import org.example.owoonwan.pledge.dto.PledgeResponse;
 import org.example.owoonwan.pledge.dto.PledgeUpdateRequest;
@@ -31,30 +29,30 @@ public class PledgeService {
 
     private final PledgeRepository pledgeRepository;
     private final UserRepository userRepository;
-    private final NicknameRepository nicknameRepository;
     private final KstDateTimeProvider dateTimeProvider;
 
     public PledgeResponse getMyPledge(AuthenticatedUser authenticatedUser) {
         User user = getActiveUser(authenticatedUser.userId());
-        return toResponse(resolvePledge(user.id()), resolveNicknameDisplay(user.nicknameId()), true);
+        return toResponse(resolvePledge(user.id()), user.displayNickname(), true);
     }
 
     public PledgeResponse upsertMyPledge(AuthenticatedUser authenticatedUser, PledgeUpdateRequest request) {
         User user = getActiveUser(authenticatedUser.userId());
         String text = normalizeText(request);
         Pledge pledge = pledgeRepository.save(user.id(), text, dateTimeProvider.nowUtc());
-        return toResponse(pledge, resolveNicknameDisplay(user.nicknameId()), true);
+        return toResponse(pledge, user.displayNickname(), true);
     }
 
     public List<PledgeResponse> listPledges(String viewerUserId) {
         Map<String, Pledge> pledgesByUserId = pledgeRepository.findAll().stream()
                 .collect(Collectors.toMap(Pledge::userId, Function.identity()));
-        Map<String, String> nicknameDisplayByUserId = userRepository.findAll().stream()
+        List<User> activeUsers = userRepository.findAll().stream()
                 .filter(user -> user.status() == UserStatus.ACTIVE)
-                .collect(Collectors.toMap(User::id, user -> resolveNicknameDisplay(user.nicknameId())));
+                .toList();
+        Map<String, String> nicknameDisplayByUserId = activeUsers.stream()
+                .collect(Collectors.toMap(User::id, User::displayNickname));
 
-        return userRepository.findAll().stream()
-                .filter(user -> user.status() == UserStatus.ACTIVE)
+        return activeUsers.stream()
                 .sorted((left, right) -> KOREAN_COLLATOR.compare(
                         nicknameDisplayByUserId.getOrDefault(left.id(), ""),
                         nicknameDisplayByUserId.getOrDefault(right.id(), "")
@@ -102,14 +100,5 @@ public class PledgeService {
             throw new BusinessException(ErrorCode.INVALID_REQUEST, "text 값이 필요합니다.");
         }
         return request.text().trim();
-    }
-
-    private String resolveNicknameDisplay(String nicknameId) {
-        if (nicknameId == null || nicknameId.isBlank()) {
-            return "";
-        }
-        return nicknameRepository.findById(nicknameId)
-                .map(Nickname::display)
-                .orElse(nicknameId);
     }
 }

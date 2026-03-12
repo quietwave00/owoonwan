@@ -64,11 +64,15 @@ public class CheckinService {
     public List<Checkin> bulkCheckinForUsers(AdminBulkCheckinRequest request) {
         LocalDate targetDate = parseRequiredDate(request == null ? null : request.date());
         List<String> userIds = normalizeUserIds(request == null ? null : request.userIds());
+        Map<String, User> usersById = userRepository.findByIds(userIds).stream()
+                .collect(LinkedHashMap::new, (map, user) -> map.put(user.id(), user), Map::putAll);
 
         List<Checkin> saved = new ArrayList<>();
         for (String userId : userIds) {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.CHECKIN_TARGET_USER_NOT_FOUND));
+            User user = usersById.get(userId);
+            if (user == null) {
+                throw new BusinessException(ErrorCode.CHECKIN_TARGET_USER_NOT_FOUND);
+            }
             if (user.status() != UserStatus.ACTIVE) {
                 throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
             }

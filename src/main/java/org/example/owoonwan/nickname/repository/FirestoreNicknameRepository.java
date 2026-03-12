@@ -74,8 +74,11 @@ public class FirestoreNicknameRepository implements NicknameRepository {
             throw new BusinessException(ErrorCode.NICKNAME_NOT_FOUND);
         }
 
+        String updatedDisplay = display == null || display.isBlank() ? snapshot.getString("display") : display.trim();
+
         if (display != null && !display.isBlank()) {
-            FirestoreAwait.get(nicknameRef.update("display", display.trim()));
+            FirestoreAwait.get(nicknameRef.update("display", updatedDisplay));
+            syncUserNicknameDisplay(nicknameId, updatedDisplay);
         }
         if (isActive != null) {
             FirestoreAwait.get(nicknameRef.update("isActive", isActive));
@@ -101,6 +104,11 @@ public class FirestoreNicknameRepository implements NicknameRepository {
             updates.put("updatedAt", Date.from(now));
             FirestoreAwait.get(snapshot.getReference().update(updates));
         }
+
+        FirestoreAwait.get(firestore.collection("users").document(userId).update(Map.of(
+                "nicknameId", null,
+                "nicknameDisplay", null
+        )));
     }
 
     private Void assignNicknameToUser(
@@ -139,13 +147,25 @@ public class FirestoreNicknameRepository implements NicknameRepository {
         if (assignedTo != null && !assignedTo.isBlank()) {
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_ASSIGNED);
         }
-        transaction.update(userRef, "nicknameId", nicknameId);
-        transaction.update(nicknameRef, Map.of(
-                "assignedTo", userId,
-                "updatedAt", Date.from(now)
+        transaction.update(userRef, Map.of(
+                "nicknameId", nicknameId,
+                "nicknameDisplay", nicknameSnapshot.getString("display")
         ));
+        transaction.update(nicknameRef, Map.of("assignedTo", userId, "updatedAt", Date.from(now)));
 
         return null;
+    }
+
+    private void syncUserNicknameDisplay(String nicknameId, String display) {
+        List<QueryDocumentSnapshot> users = FirestoreAwait.get(
+                firestore.collection("users")
+                        .whereEqualTo("nicknameId", nicknameId)
+                        .get()
+        ).getDocuments();
+
+        for (QueryDocumentSnapshot user : users) {
+            FirestoreAwait.get(user.getReference().update("nicknameDisplay", display));
+        }
     }
 
     private CollectionReference nicknames() {

@@ -51,6 +51,7 @@ class FirestoreManualSeedIntegrationTest {
 
         assertEquals(LOGIN_ID, savedUser.loginId());
         assertEquals(nicknameId, savedUser.nicknameId());
+        assertEquals(NICKNAME_DISPLAY, savedUser.nicknameDisplay());
         assertEquals(NICKNAME_DISPLAY, savedNickname.display());
         assertEquals(userId, savedNickname.assignedTo());
         assertTrue(savedNickname.active());

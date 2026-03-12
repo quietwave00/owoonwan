@@ -1,20 +1,5 @@
 package org.example.owoonwan.checkin.service;
 
-import org.example.owoonwan.checkin.domain.Checkin;
-import org.example.owoonwan.checkin.domain.CheckinStatus;
-import org.example.owoonwan.checkin.dto.AdminCheckinDateResponse;
-import org.example.owoonwan.checkin.repository.CheckinRepository;
-import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
-import org.example.owoonwan.common.error.BusinessException;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
-import org.example.owoonwan.user.domain.User;
-import org.example.owoonwan.user.domain.UserRole;
-import org.example.owoonwan.user.domain.UserStatus;
-import org.example.owoonwan.user.repository.UserRepository;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,6 +7,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.example.owoonwan.checkin.domain.Checkin;
+import org.example.owoonwan.checkin.domain.CheckinStatus;
+import org.example.owoonwan.checkin.dto.AdminCheckinDateResponse;
+import org.example.owoonwan.checkin.repository.CheckinRepository;
+import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
+import org.example.owoonwan.common.error.BusinessException;
+import org.example.owoonwan.user.domain.User;
+import org.example.owoonwan.user.domain.UserRole;
+import org.example.owoonwan.user.domain.UserStatus;
+import org.example.owoonwan.user.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,23 +26,18 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AdminCheckinQueryServiceTest {
 
     @Test
-    @DisplayName("관리자 일자 조회는 활성 사용자와 체크인 상태를 함께 반환한다")
+    @DisplayName("관리자 날짜 조회는 active 사용자만 포함하고 nicknameDisplay 기준으로 정렬한다")
     void shouldReturnUsersWithCheckinStatusForDate() {
         Instant now = Instant.parse("2026-03-09T00:00:00Z");
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
-        userRepository.save(new User("u1", "member01", "n1", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u3", "member03", "n3", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
-
-        InMemoryNicknameRepository nicknameRepository = new InMemoryNicknameRepository();
-        nicknameRepository.save(new Nickname("n1", "하리", true, "u1", now, now));
-        nicknameRepository.save(new Nickname("n2", "범수", true, "u2", now, now));
-        nicknameRepository.save(new Nickname("n3", "채린", true, "u3", now, now));
+        userRepository.save(new User("u1", "member01", "n1", "나리", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u3", "member03", "n3", "채린", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
 
         InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
         checkinRepository.save(new CheckinSaveCommand("u1_20260302", "u1", "2026-03-02", "2026-W10", "2026-03", CheckinStatus.PRESENT, now));
 
-        AdminCheckinQueryService service = new AdminCheckinQueryService(checkinRepository, userRepository, nicknameRepository);
+        AdminCheckinQueryService service = new AdminCheckinQueryService(checkinRepository, userRepository);
 
         AdminCheckinDateResponse response = service.getCheckinsByDate("2026-03-02");
 
@@ -54,17 +46,16 @@ class AdminCheckinQueryServiceTest {
         assertEquals(2, response.users().size());
         assertEquals("범수", response.users().get(0).nickname());
         assertEquals(CheckinStatus.ABSENT, response.users().get(0).status());
-        assertEquals("하리", response.users().get(1).nickname());
+        assertEquals("나리", response.users().get(1).nickname());
         assertEquals(CheckinStatus.PRESENT, response.users().get(1).status());
     }
 
     @Test
-    @DisplayName("날짜 형식이 잘못되면 관리자 일자 조회를 거부한다")
+    @DisplayName("날짜 형식이 잘못되면 관리자 날짜 조회를 거부한다")
     void shouldRejectInvalidDate() {
         AdminCheckinQueryService service = new AdminCheckinQueryService(
                 new InMemoryCheckinRepository(),
-                new InMemoryUserRepository(),
-                new InMemoryNicknameRepository()
+                new InMemoryUserRepository()
         );
 
         assertThrows(BusinessException.class, () -> service.getCheckinsByDate("2026/03/02"));
@@ -165,47 +156,6 @@ class AdminCheckinQueryServiceTest {
 
         void save(User user) {
             users.put(user.id(), user);
-        }
-    }
-
-    private static final class InMemoryNicknameRepository implements NicknameRepository {
-        private final Map<String, Nickname> nicknames = new HashMap<>();
-
-        @Override
-        public String create(String display, Instant now) {
-            return null;
-        }
-
-        @Override
-        public Optional<Nickname> findById(String nicknameId) {
-            return Optional.ofNullable(nicknames.get(nicknameId));
-        }
-
-        @Override
-        public List<Nickname> findAll() {
-            return new ArrayList<>(nicknames.values());
-        }
-
-        @Override
-        public List<Nickname> findAllActive() {
-            return nicknames.values().stream().filter(Nickname::active).toList();
-        }
-
-        @Override
-        public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-            return nicknames.get(nicknameId);
-        }
-
-        @Override
-        public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        }
-
-        @Override
-        public void clearAssignment(String userId, Instant now) {
-        }
-
-        void save(Nickname nickname) {
-            nicknames.put(nickname.id(), nickname);
         }
     }
 }

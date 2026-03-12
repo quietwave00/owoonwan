@@ -52,7 +52,14 @@ public class AuthService {
             Instant sessionExpiresAt = SESSION_MAX_EXPIRES_AT;
             String token = sessionRepository.create(user.id(), user.loginId(), now, sessionExpiresAt);
             userRepository.updateLastLoginAt(user.id(), now);
-            return new AuthLoginResponse(token, sessionExpiresAt, user.id(), user.loginId(), user.nicknameId());
+            return new AuthLoginResponse(
+                    token,
+                    sessionExpiresAt,
+                    user.id(),
+                    user.loginId(),
+                    user.nicknameId(),
+                    user.nicknameDisplay()
+            );
         } finally {
             loginLockRepository.release(loginId);
         }
@@ -79,6 +86,7 @@ public class AuthService {
                 authenticatedUser.userId(),
                 authenticatedUser.loginId(),
                 authenticatedUser.nicknameId(),
+                authenticatedUser.nicknameDisplay(),
                 authenticatedUser.role(),
                 session.expiresAt()
         );
@@ -104,7 +112,14 @@ public class AuthService {
         }
 
         sessionRepository.touchLastSeen(token, now);
-        return new AuthenticatedUser(user.id(), user.loginId(), user.nicknameId(), user.role(), token);
+        return new AuthenticatedUser(
+                user.id(),
+                user.loginId(),
+                user.nicknameId(),
+                user.nicknameDisplay(),
+                user.role(),
+                token
+        );
     }
 
     private String extractBearerToken(String authorizationHeader) {

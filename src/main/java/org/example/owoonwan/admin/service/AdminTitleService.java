@@ -50,7 +50,7 @@ public class AdminTitleService {
         List<TitleResponse> titles = userRepository.findAll().stream()
                 .filter(user -> user.status() == UserStatus.ACTIVE)
                 .sorted(Comparator.comparing(User::loginId))
-                .map(user -> titleQueryService.getUserTitles(user.id(), resolvedWeekKey, resolvedMonthKey))
+                .map(user -> titleQueryService.getUserTitles(user, resolvedWeekKey, resolvedMonthKey))
                 .toList();
 
         return new AdminTitleVerificationResponse(resolvedWeekKey, resolvedMonthKey, titles);

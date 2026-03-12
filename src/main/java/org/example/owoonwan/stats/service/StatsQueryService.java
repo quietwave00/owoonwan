@@ -9,8 +9,6 @@ import org.example.owoonwan.checkin.repository.CheckinRepository;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.nickname.domain.Nickname;
-import org.example.owoonwan.nickname.repository.NicknameRepository;
 import org.example.owoonwan.stats.dto.MonthlyBoardMemberResponse;
 import org.example.owoonwan.stats.dto.MonthlyBoardResponse;
 import org.example.owoonwan.stats.dto.UserMonthlyCalendarResponse;
@@ -43,7 +41,6 @@ public class StatsQueryService {
 
     private final CheckinRepository checkinRepository;
     private final UserRepository userRepository;
-    private final NicknameRepository nicknameRepository;
     private final KstDateTimeProvider dateTimeProvider;
 
     public MonthlyBoardResponse getMonthlyBoard(String month) {
@@ -68,7 +65,7 @@ public class StatsQueryService {
 
         return new UserMonthlyCalendarResponse(
                 targetUser.id(),
-                resolveNicknameDisplay(targetUser.nicknameId()),
+                targetUser.displayNickname(),
                 monthKey,
                 buildCalendarDays(checkins, targetMonth, userId.equals(viewerUserId)),
                 countPresent(checkins),
@@ -100,7 +97,7 @@ public class StatsQueryService {
 
         return new UserSummaryResponse(
                 targetUser.id(),
-                resolveNicknameDisplay(targetUser.nicknameId()),
+                targetUser.displayNickname(),
                 TimeKeyUtil.deriveWeekKey(currentWeekStart.atStartOfDay(KST_ZONE).toInstant()),
                 countPresent(currentWeekCheckins),
                 TimeKeyUtil.deriveWeekKey(previousWeekStart.atStartOfDay(KST_ZONE).toInstant()),
@@ -116,7 +113,7 @@ public class StatsQueryService {
         int monthlyCount = countPresent(checkinRepository.findByUserIdAndMonthKey(user.id(), monthKey));
         return new MonthlyBoardMemberResponse(
                 user.id(),
-                resolveNicknameDisplay(user.nicknameId()),
+                user.displayNickname(),
                 user.role(),
                 monthlyCount
         );
@@ -185,14 +182,5 @@ public class StatsQueryService {
         } catch (DateTimeParseException exception) {
             throw new BusinessException(ErrorCode.CHECKIN_INVALID_MONTH);
         }
-    }
-
-    private String resolveNicknameDisplay(String nicknameId) {
-        if (nicknameId == null || nicknameId.isBlank()) {
-            return "";
-        }
-        return nicknameRepository.findById(nicknameId)
-                .map(Nickname::display)
-                .orElse(nicknameId);
     }
 }

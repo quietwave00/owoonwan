@@ -88,7 +88,8 @@ class UserNicknameSignupIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.uid").value(userId))
                 .andExpect(jsonPath("$.data.loginId").value("member01"))
-                .andExpect(jsonPath("$.data.nicknameId").value(nicknameId2));
+                .andExpect(jsonPath("$.data.nicknameId").value(nicknameId2))
+                .andExpect(jsonPath("$.data.nicknameDisplay").value("테스트2"));
 
         mockMvc.perform(post("/users/" + userId + "/nickname")
                         .header("X-User-Id", userId)
@@ -167,7 +168,7 @@ class UserNicknameSignupIntegrationTest {
         @Override
         public String create(String loginId, UserRole role, Instant now) {
             String id = UUID.randomUUID().toString();
-            User user = new User(id, loginId, null, role, UserStatus.ACTIVE, now, null, null, false, null);
+            User user = new User(id, loginId, null, null, role, UserStatus.ACTIVE, now, null, null, false, null);
             store.users.put(id, user);
             return id;
         }
@@ -204,6 +205,7 @@ class UserNicknameSignupIntegrationTest {
                     user.id(),
                     user.loginId(),
                     user.nicknameId(),
+                    user.nicknameDisplay(),
                     role,
                     user.status(),
                     user.createdAt(),
@@ -226,6 +228,7 @@ class UserNicknameSignupIntegrationTest {
                     user.id(),
                     user.loginId(),
                     user.nicknameId(),
+                    user.nicknameDisplay(),
                     user.role(),
                     user.status(),
                     user.createdAt(),
@@ -247,6 +250,7 @@ class UserNicknameSignupIntegrationTest {
             User deleted = new User(
                     user.id(),
                     user.loginId(),
+                    null,
                     null,
                     user.role(),
                     UserStatus.DELETED,
@@ -270,6 +274,7 @@ class UserNicknameSignupIntegrationTest {
                     user.id(),
                     user.loginId(),
                     user.nicknameId(),
+                    user.nicknameDisplay(),
                     user.role(),
                     user.status(),
                     user.createdAt(),
@@ -330,6 +335,24 @@ class UserNicknameSignupIntegrationTest {
                     now
             );
             store.nicknames.put(nicknameId, updated);
+            store.users.replaceAll((id, user) -> {
+                if (!nicknameId.equals(user.nicknameId())) {
+                    return user;
+                }
+                return new User(
+                        user.id(),
+                        user.loginId(),
+                        user.nicknameId(),
+                        updated.display(),
+                        user.role(),
+                        user.status(),
+                        user.createdAt(),
+                        user.deletedAt(),
+                        user.lastLoginAt(),
+                        user.kakkdugi(),
+                        user.pledgeId()
+                );
+            });
             return updated;
         }
 
@@ -361,6 +384,7 @@ class UserNicknameSignupIntegrationTest {
                     user.id(),
                     user.loginId(),
                     nicknameId,
+                    nickname.display(),
                     user.role(),
                     user.status(),
                     user.createdAt(),
@@ -383,6 +407,22 @@ class UserNicknameSignupIntegrationTest {
 
         @Override
         public void clearAssignment(String userId, Instant now) {
+            User user = store.users.get(userId);
+            if (user != null) {
+                store.users.put(userId, new User(
+                        user.id(),
+                        user.loginId(),
+                        null,
+                        null,
+                        user.role(),
+                        user.status(),
+                        user.createdAt(),
+                        user.deletedAt(),
+                        user.lastLoginAt(),
+                        user.kakkdugi(),
+                        user.pledgeId()
+                ));
+            }
             store.nicknames.replaceAll((id, nickname) -> {
                 if (!userId.equals(nickname.assignedTo())) {
                     return nickname;

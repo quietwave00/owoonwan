@@ -8,6 +8,7 @@ public record AuthMeResponse(
         String uid,
         String loginId,
         String nicknameId,
+        String nicknameDisplay,
         UserRole role,
         Instant expiresAt
 ) {
