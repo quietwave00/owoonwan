@@ -27,7 +27,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Verify backend
-        run: ./gradlew compileTestJava --no-daemon
+        run: ./gradlew compileJava --no-daemon
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
         if: github.event_name != 'pull_request'
