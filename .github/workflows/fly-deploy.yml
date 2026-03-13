@@ -2,9 +2,9 @@ name: Fly Deploy
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
 
 concurrency:
@@ -15,8 +15,18 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    env:
+      FLY_BACKEND_APP_NAME: ${{ vars.FLY_BACKEND_APP_NAME }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_BACKEND }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate backend deploy settings
+        if: github.event_name != 'pull_request'
+        run: |
+          test -f gradle/wrapper/gradle-wrapper.jar || (echo "gradle/wrapper/gradle-wrapper.jar is missing from the repository" && exit 1)
+          test -n "$FLY_BACKEND_APP_NAME" || (echo "FLY_BACKEND_APP_NAME is empty" && exit 1)
+          test -n "$FLY_API_TOKEN" || (echo "FLY_API_TOKEN_BACKEND is empty" && exit 1)
 
       - uses: actions/setup-java@v4
         with:
@@ -34,15 +44,24 @@ jobs:
 
       - name: Deploy backend to Fly.io
         if: github.event_name != 'pull_request'
-        run: flyctl deploy --remote-only --config fly.backend.toml --app "${{ vars.FLY_BACKEND_APP_NAME }}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_BACKEND }}
+        run: flyctl deploy --remote-only --config fly.backend.toml --app "$FLY_BACKEND_APP_NAME"
 
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    env:
+      FLY_FRONTEND_APP_NAME: ${{ vars.FLY_FRONTEND_APP_NAME }}
+      FLY_FRONTEND_API_BASE_URL: ${{ vars.FLY_FRONTEND_API_BASE_URL }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_FRONTEND }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate frontend deploy settings
+        if: github.event_name != 'pull_request'
+        run: |
+          test -n "$FLY_FRONTEND_APP_NAME" || (echo "FLY_FRONTEND_APP_NAME is empty" && exit 1)
+          test -n "$FLY_FRONTEND_API_BASE_URL" || (echo "FLY_FRONTEND_API_BASE_URL is empty" && exit 1)
+          test -n "$FLY_API_TOKEN" || (echo "FLY_API_TOKEN_FRONTEND is empty" && exit 1)
 
       - uses: actions/setup-node@v4
         with:
@@ -53,7 +72,7 @@ jobs:
       - name: Verify frontend
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: ${{ vars.FLY_FRONTEND_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ env.FLY_FRONTEND_API_BASE_URL }}
         run: |
           npm ci
           npm run build
@@ -64,6 +83,4 @@ jobs:
       - name: Deploy frontend to Fly.io
         if: github.event_name != 'pull_request'
         working-directory: frontend
-        run: flyctl deploy --remote-only --config fly.toml --app "${{ vars.FLY_FRONTEND_APP_NAME }}" --build-arg VITE_API_BASE_URL="${{ vars.FLY_FRONTEND_API_BASE_URL }}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_FRONTEND }}
+        run: flyctl deploy --remote-only --config fly.toml --app "$FLY_FRONTEND_APP_NAME" --build-arg VITE_API_BASE_URL="$FLY_FRONTEND_API_BASE_URL"
