@@ -1,4 +1,4 @@
-app = "replace-with-backend-app-name"
+app = "owoonwan-api"
 primary_region = "nrt"
 
 [build]

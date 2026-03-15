@@ -1,4 +1,4 @@
-app = "replace-with-frontend-app-name"
+app = "owoonwan"
 primary_region = "nrt"
 
 [build]
