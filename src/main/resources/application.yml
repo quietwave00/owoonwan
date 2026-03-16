@@ -31,4 +31,4 @@ app:
   firebase:
     enabled: true
   cors:
-    allowed-origin-patterns: https://owoonwan.fly.dev/
+    allowed-origin-patterns: https://owoonwan.fly.dev

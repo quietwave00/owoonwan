@@ -17,12 +17,16 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.regex.Pattern;
 
 @Configuration
 @EnableConfigurationProperties(FirebaseProperties.class)
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "app.firebase.enabled", havingValue = "true", matchIfMissing = true)
 public class FirebaseConfig {
+
+    private static final Pattern BASE64_PATTERN = Pattern.compile("^[A-Za-z0-9+/=\\r\\n]+$");
 
     private final FirebaseProperties firebaseProperties;
 
@@ -58,11 +62,30 @@ public class FirebaseConfig {
             return new ByteArrayInputStream(trimmed.getBytes(StandardCharsets.UTF_8));
         }
 
+        String decodedCredentials = decodeBase64Credentials(trimmed);
+        if (decodedCredentials != null) {
+            return new ByteArrayInputStream(decodedCredentials.getBytes(StandardCharsets.UTF_8));
+        }
+
         Path path = Path.of(trimmed);
         if (!Files.exists(path)) {
             throw new IllegalStateException("Firebase credentials path does not exist: " + path);
         }
 
         return Files.newInputStream(path);
+    }
+
+    private String decodeBase64Credentials(String value) {
+        if (!BASE64_PATTERN.matcher(value).matches()) {
+            return null;
+        }
+
+        try {
+            byte[] decoded = Base64.getMimeDecoder().decode(value);
+            String decodedValue = new String(decoded, StandardCharsets.UTF_8).trim();
+            return decodedValue.startsWith("{") ? decodedValue : null;
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 }
