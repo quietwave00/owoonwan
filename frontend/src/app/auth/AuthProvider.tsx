@@ -62,12 +62,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       sessionToken,
       me: meQuery.data ?? null,
-      isAuthenticated: Boolean(sessionToken && meQuery.data),
-      isRestoring: Boolean(sessionToken) && meQuery.isLoading,
+      isAuthenticated: Boolean(sessionToken),
+      isRestoring: false,
       completeLogin,
       logout,
     }),
-    [meQuery.data, meQuery.isLoading, sessionToken],
+    [meQuery.data, sessionToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

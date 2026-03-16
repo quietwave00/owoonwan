@@ -2,8 +2,8 @@ import { FormEvent, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login } from "../../api/auth";
 import { useAuth } from "../../app/auth/AuthProvider";
+import { Button, Field, TextInput } from "../../components/common/Ui";
 import { ApiError } from "../../types/api";
-import { Button, Field, InlineNotice, TextInput } from "../../components/common/Ui";
 
 type LoginLocationState = {
   from?: string;
@@ -14,7 +14,7 @@ type LoginLocationState = {
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { completeLogin, isAuthenticated, isRestoring } = useAuth();
+  const { completeLogin, isAuthenticated } = useAuth();
   const state = (location.state as LoginLocationState | null) ?? null;
   const nextPath = state?.from ?? "/checkin";
   const [loginId, setLoginId] = useState(state?.loginId ?? "");
@@ -66,24 +66,23 @@ export function LoginPage() {
   return (
     <main className="login-page bg-grid">
       <form className="login-form" onSubmit={handleSubmit}>
-        {state?.nicknameSelected ? (
-          <span>닉네임 선택 완료.. 재로그인 ㄱㄱ</span>
-        ) : null}
+        {state?.nicknameSelected ? <span>닉네임 선택 완료.. 재로그인 ㄱㄱ</span> : null}
 
-        <Field hint={isRestoring ? "세션 복원 중입니다." : undefined} error={errorMessage}>
+        <Field error={errorMessage}>
           <TextInput
             value={loginId}
             onChange={(event) => setLoginId(event.target.value)}
             placeholder="loginId"
             autoComplete="username"
-            disabled={isSubmitting || isRestoring}
+            disabled={isSubmitting}
           />
         </Field>
 
-        <Button type="submit" block disabled={isSubmitting || isRestoring}>
+        <Button type="submit" block disabled={isSubmitting}>
           {isSubmitting ? "로그인 중..." : "로그인"}
         </Button>
       </form>
     </main>
   );
 }
+

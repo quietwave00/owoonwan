@@ -9,20 +9,7 @@ type GuardProps = {
 
 export function ProtectedRoute({ children }: GuardProps) {
   const location = useLocation();
-  const { isAuthenticated, isRestoring } = useAuth();
-
-  if (isRestoring) {
-    return (
-      <main className="page-shell">
-        <StateCard
-          eyebrow="Session"
-          tone="loading"
-          title="세션을 복원하고 있습니다"
-          description="저장된 로그인 정보를 확인한 뒤 보호 화면으로 다시 연결합니다."
-        />
-      </main>
-    );
-  }
+  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -32,26 +19,13 @@ export function ProtectedRoute({ children }: GuardProps) {
 }
 
 export function AdminRoute({ children }: GuardProps) {
-  const { isAuthenticated, isRestoring, me } = useAuth();
-
-  if (isRestoring) {
-    return (
-      <main className="page-shell">
-        <StateCard
-          eyebrow="Admin"
-          tone="loading"
-          title="관리자 권한을 확인하는 중입니다"
-          description="현재 세션의 역할과 접근 범위를 다시 확인하고 있습니다."
-        />
-      </main>
-    );
-  }
+  const { isAuthenticated, me } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (me?.role !== "ADMIN") {
+  if (me && me.role !== "ADMIN") {
     return (
       <main className="page-shell">
         <StateCard
