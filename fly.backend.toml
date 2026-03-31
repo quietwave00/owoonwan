@@ -2,10 +2,10 @@ app = "owoonwan-api"
 primary_region = "nrt"
 
 [build]
-  dockerfile = "Dockerfile"
+dockerfile = "Dockerfile"
 
 [env]
-  SPRING_PROFILES_ACTIVE = "prod"
+SPRING_PROFILES_ACTIVE = "prod"
 
 [http_service]
   internal_port = 8080
