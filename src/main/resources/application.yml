@@ -4,6 +4,10 @@ spring:
   profiles:
     default: local
 
+server:
+  address: 0.0.0.0
+  port: ${PORT:8080}
+
 app:
   firebase:
     enabled: true
@@ -26,6 +30,8 @@ spring:
   config:
     activate:
       on-profile: prod
+  main:
+    lazy-initialization: true
 
 app:
   firebase:

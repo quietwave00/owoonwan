@@ -16,4 +16,4 @@ EXPOSE 8080
 
 ENV SPRING_PROFILES_ACTIVE=prod
 
-ENTRYPOINT ["java", "-Xms96m", "-Xmx160m", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:InitialRAMPercentage=20", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
