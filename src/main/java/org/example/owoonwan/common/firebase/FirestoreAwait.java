@@ -12,7 +12,7 @@ import java.util.concurrent.TimeoutException;
 @Slf4j
 public final class FirestoreAwait {
 
-    private static final long FIRESTORE_TIMEOUT_SECONDS = 20;
+    private static final long FIRESTORE_TIMEOUT_SECONDS = 180;
 
     private FirestoreAwait() {
     }
