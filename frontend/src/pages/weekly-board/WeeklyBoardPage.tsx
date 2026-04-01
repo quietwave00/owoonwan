@@ -137,7 +137,6 @@ export function WeeklyBoardPage() {
           eyebrow="Weekly Board"
           tone="warning"
           title="이번 주에 표시할 데이터가 없습니다"
-          description="주간 보드 응답이 비어 있습니다. 다른 주차로 이동해 확인해보세요."
           action={
             <Button size="sm" onClick={() => setSelectedDate(today)}>
               이번 주로 이동

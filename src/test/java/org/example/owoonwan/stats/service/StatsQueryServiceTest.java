@@ -1,5 +1,28 @@
 package org.example.owoonwan.stats.service;
 
+import org.example.owoonwan.checkin.domain.Checkin;
+import org.example.owoonwan.checkin.domain.CheckinStatus;
+import org.example.owoonwan.checkin.dto.CheckinDayResponse;
+import org.example.owoonwan.checkin.repository.CheckinRepository;
+import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
+import org.example.owoonwan.common.time.KstDateTimeProvider;
+import org.example.owoonwan.stats.dto.MonthlyBoardResponse;
+import org.example.owoonwan.stats.dto.UserMonthlyCalendarResponse;
+import org.example.owoonwan.stats.dto.UserSummaryResponse;
+import org.example.owoonwan.title.domain.TitleRules;
+import org.example.owoonwan.title.repository.TitleRuleRepository;
+import org.example.owoonwan.title.service.MonthlyTitleCalculator;
+import org.example.owoonwan.title.service.TitleBadgeAssembler;
+import org.example.owoonwan.title.service.TitleRuleService;
+import org.example.owoonwan.title.service.WeeklyTitleCalculator;
+import org.example.owoonwan.user.domain.User;
+import org.example.owoonwan.user.domain.UserRole;
+import org.example.owoonwan.user.domain.UserStatus;
+import org.example.owoonwan.user.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -9,27 +32,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.example.owoonwan.checkin.domain.Checkin;
-import org.example.owoonwan.checkin.domain.CheckinStatus;
-import org.example.owoonwan.checkin.repository.CheckinRepository;
-import org.example.owoonwan.checkin.repository.CheckinSaveCommand;
-import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.stats.dto.MonthlyBoardResponse;
-import org.example.owoonwan.stats.dto.UserMonthlyCalendarResponse;
-import org.example.owoonwan.stats.dto.UserSummaryResponse;
-import org.example.owoonwan.user.domain.User;
-import org.example.owoonwan.user.domain.UserRole;
-import org.example.owoonwan.user.domain.UserStatus;
-import org.example.owoonwan.user.repository.UserRepository;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StatsQueryServiceTest {
 
     @Test
-    @DisplayName("월간 보드는 active 사용자만 nicknameDisplay와 count로 정렬한다")
+    @DisplayName("월간 보드는 월간 횟수와 배지를 함께 반환한다")
     void shouldBuildMonthlyBoard() {
         StatsQueryService service = createService();
 
@@ -39,12 +48,14 @@ class StatsQueryServiceTest {
         assertEquals(2, response.members().size());
         assertEquals("나리", response.members().get(0).nickname());
         assertEquals(2, response.members().get(0).monthlyCount());
+        assertEquals(List.of("영혼"), response.members().get(0).badges());
         assertEquals("범수", response.members().get(1).nickname());
         assertEquals(1, response.members().get(1).monthlyCount());
+        assertEquals(List.of("깍두기", "영혼"), response.members().get(1).badges());
     }
 
     @Test
-    @DisplayName("멤버 월간 캘린더는 monthlyCount와 주차별 집계를 반환한다")
+    @DisplayName("사용자 월간 캘린더는 월간 횟수와 일별 상태를 함께 반환한다")
     void shouldBuildUserMonthlyCalendar() {
         StatsQueryService service = createService();
 
@@ -56,11 +67,11 @@ class StatsQueryServiceTest {
         assertEquals(31, response.days().size());
         assertEquals(2, response.monthlyCount());
         assertEquals(List.of(0, 0, 2, 0, 0, 0), response.weeklyCounts());
-        assertEquals(CheckinStatus.PRESENT, response.days().stream()
+        CheckinDayResponse marchEleven = response.days().stream()
                 .filter(day -> "2026-03-11".equals(day.date()))
                 .findFirst()
-                .orElseThrow()
-                .status());
+                .orElseThrow();
+        assertEquals(CheckinStatus.PRESENT, marchEleven.status());
     }
 
     @Test
@@ -87,7 +98,7 @@ class StatsQueryServiceTest {
 
         InMemoryUserRepository userRepository = new InMemoryUserRepository();
         userRepository.save(new User("u1", "member01", "n1", "나리", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, false, null));
+        userRepository.save(new User("u2", "member02", "n2", "범수", UserRole.ADMIN, UserStatus.ACTIVE, now, null, null, true, null));
         userRepository.save(new User("u3", "member03", "n3", "채린", UserRole.REGULAR, UserStatus.DELETED, now, now, null, false, null));
 
         InMemoryCheckinRepository checkinRepository = new InMemoryCheckinRepository();
@@ -99,8 +110,20 @@ class StatsQueryServiceTest {
         return new StatsQueryService(
                 checkinRepository,
                 userRepository,
-                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
+                new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC)),
+                new TitleBadgeAssembler(
+                        new TitleRuleService(new SingleObjectProvider<>(new InMemoryTitleRuleRepository())),
+                        new WeeklyTitleCalculator(),
+                        new MonthlyTitleCalculator()
+                )
         );
+    }
+
+    private static final class InMemoryTitleRuleRepository implements TitleRuleRepository {
+        @Override
+        public Optional<TitleRules> findRules() {
+            return Optional.of(new TitleRules(3, 12));
+        }
     }
 
     private static final class InMemoryCheckinRepository implements CheckinRepository {
@@ -150,6 +173,14 @@ class StatsQueryServiceTest {
         public List<Checkin> findByWeekKey(String weekKey) {
             return store.values().stream()
                     .filter(checkin -> weekKey.equals(checkin.weekKey()))
+                    .sorted(Comparator.comparing(Checkin::userId).thenComparing(Checkin::date))
+                    .toList();
+        }
+
+        @Override
+        public List<Checkin> findByMonthKey(String monthKey) {
+            return store.values().stream()
+                    .filter(checkin -> monthKey.equals(checkin.monthKey()))
                     .sorted(Comparator.comparing(Checkin::userId).thenComparing(Checkin::date))
                     .toList();
         }
@@ -204,6 +235,34 @@ class StatsQueryServiceTest {
 
         void save(User user) {
             users.put(user.id(), user);
+        }
+    }
+
+    private static final class SingleObjectProvider<T> implements ObjectProvider<T> {
+        private final T value;
+
+        private SingleObjectProvider(T value) {
+            this.value = value;
+        }
+
+        @Override
+        public T getObject(Object... args) {
+            return value;
+        }
+
+        @Override
+        public T getIfAvailable() {
+            return value;
+        }
+
+        @Override
+        public T getIfUnique() {
+            return value;
+        }
+
+        @Override
+        public T getObject() {
+            return value;
         }
     }
 }

@@ -1,14 +1,13 @@
 package org.example.owoonwan.auth.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.owoonwan.auth.config.AuthTokenProperties;
 import org.example.owoonwan.auth.dto.AuthLoginRequest;
 import org.example.owoonwan.auth.dto.AuthLoginResponse;
 import org.example.owoonwan.auth.dto.AuthMeResponse;
 import org.example.owoonwan.auth.dto.AuthenticatedUser;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.time.KstDateTimeProvider;
-import org.example.owoonwan.session.domain.Session;
-import org.example.owoonwan.session.repository.LoginLockRepository;
-import org.example.owoonwan.session.repository.SessionRepository;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserRole;
 import org.example.owoonwan.user.domain.UserStatus;
@@ -31,25 +30,27 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AuthServiceTest {
 
     @Test
-    @DisplayName("loginId로 로그인하면 세션 토큰을 발급한다")
-    void shouldIssueSessionTokenWhenLoginSucceeds() {
+    @DisplayName("loginId로 로그인하면 토큰을 발급한다")
+    void shouldIssueLongLivedTokenWhenLoginSucceeds() {
         Instant now = Instant.parse("2026-03-09T00:00:00Z");
         FakeUserRepository userRepository = new FakeUserRepository();
         userRepository.add(new User("u1", "member01", "nick-1", "test", UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
-        FakeSessionRepository sessionRepository = new FakeSessionRepository();
         AuthService authService = new AuthService(
                 userRepository,
-                sessionRepository,
-                new NoopLoginLockRepository(),
+                authTokenService("test-secret", 3650),
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
 
         AuthLoginResponse response = authService.login(new AuthLoginRequest("member01"));
+        AuthenticatedUser authenticatedUser = authService.authenticate("Bearer " + response.sessionToken());
 
         assertEquals("u1", response.uid());
         assertEquals("member01", response.loginId());
         assertEquals("nick-1", response.nicknameId());
         assertEquals("test", response.nicknameDisplay());
+        assertEquals(Instant.parse("2036-03-06T00:00:00Z"), response.expiresAt());
+        assertEquals("u1", authenticatedUser.userId());
+        assertEquals(UserRole.REGULAR, authenticatedUser.role());
     }
 
     @Test
@@ -60,8 +61,7 @@ class AuthServiceTest {
         userRepository.add(new User("u1", "member01", null, UserRole.REGULAR, UserStatus.ACTIVE, now, null, null, false, null));
         AuthService authService = new AuthService(
                 userRepository,
-                new FakeSessionRepository(),
-                new NoopLoginLockRepository(),
+                authTokenService("test-secret", 3650),
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
 
@@ -69,13 +69,12 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("인증 정보에 담긴 세션 만료 시간을 그대로 반환한다")
+    @DisplayName("인증 정보는 토큰 만료 시간을 그대로 반환한다")
     void shouldReturnMeFromAuthenticatedUser() {
         Instant now = Instant.parse("2026-03-09T00:00:00Z");
         AuthService authService = new AuthService(
                 new FakeUserRepository(),
-                new FakeSessionRepository(),
-                new NoopLoginLockRepository(),
+                authTokenService("test-secret", 3650),
                 new KstDateTimeProvider(Clock.fixed(now, ZoneOffset.UTC))
         );
 
@@ -92,6 +91,13 @@ class AuthServiceTest {
         AuthMeResponse response = authService.me(authenticatedUser);
 
         assertEquals(now.plus(1, ChronoUnit.DAYS), response.expiresAt());
+    }
+
+    private AuthTokenService authTokenService(String secret, long maxAgeDays) {
+        AuthTokenProperties properties = new AuthTokenProperties();
+        properties.setSecret(secret);
+        properties.setMaxAgeDays(maxAgeDays);
+        return new AuthTokenService(properties, new ObjectMapper());
     }
 
     private static final class FakeUserRepository implements UserRepository {
@@ -162,60 +168,6 @@ class AuthServiceTest {
 
         void add(User user) {
             usersById.put(user.id(), user);
-        }
-    }
-
-    private static final class FakeSessionRepository implements SessionRepository {
-        private final Map<String, Session> sessions = new HashMap<>();
-
-        @Override
-        public String create(String userId, String loginId, Instant now, Instant expiresAt) {
-            String token = "token-" + sessions.size();
-            sessions.put(token, new Session(token, userId, loginId, true, now, now, expiresAt));
-            return token;
-        }
-
-        @Override
-        public Optional<Session> findByToken(String token) {
-            return Optional.ofNullable(sessions.get(token));
-        }
-
-        @Override
-        public void deactivateByToken(String token, Instant now) {
-            Session session = sessions.get(token);
-            if (session == null) {
-                return;
-            }
-            sessions.put(token, new Session(session.token(), session.userId(), session.loginId(), false, session.createdAt(), now, session.expiresAt()));
-        }
-
-        @Override
-        public void deactivateAllByUserId(String userId, Instant now) {
-            sessions.replaceAll((token, session) -> {
-                if (!userId.equals(session.userId())) {
-                    return session;
-                }
-                return new Session(session.token(), session.userId(), session.loginId(), false, session.createdAt(), now, session.expiresAt());
-            });
-        }
-
-        @Override
-        public void touchLastSeen(String token, Instant now) {
-            Session session = sessions.get(token);
-            if (session == null) {
-                return;
-            }
-            sessions.put(token, new Session(session.token(), session.userId(), session.loginId(), session.active(), session.createdAt(), now, session.expiresAt()));
-        }
-    }
-
-    private static final class NoopLoginLockRepository implements LoginLockRepository {
-        @Override
-        public void acquire(String loginId, Instant now, Instant expiresAt) {
-        }
-
-        @Override
-        public void release(String loginId) {
         }
     }
 }

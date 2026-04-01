@@ -9,6 +9,10 @@ server:
   port: ${PORT:8080}
 
 app:
+  auth:
+    token:
+      secret: ${APP_AUTH_TOKEN_SECRET}
+      max-age-days: ${APP_AUTH_TOKEN_MAX_AGE_DAYS:3650}
   firebase:
     enabled: true
     credentials: ${FIREBASE_SERVICE_ACCOUNT_JSON:${GOOGLE_APPLICATION_CREDENTIALS:}}
