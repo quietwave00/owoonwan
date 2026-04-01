@@ -165,7 +165,7 @@ export function AdminStatsPage() {
         tab === "weekly" ? `admin-weekly-${selectedDate}.png` : `admin-monthly-${selectedMonth}.png`,
       );
     } catch {
-      window.alert("\uC774\uBBF8\uC9C0 \uC800\uC7A5\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.");
+      window.alert("저장되었슴다");
     } finally {
       setIsExporting(false);
     }

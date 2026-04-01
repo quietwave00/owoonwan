@@ -63,22 +63,27 @@ public class CheckinService {
 
     public List<Checkin> bulkCheckinForUsers(AdminBulkCheckinRequest request) {
         LocalDate targetDate = parseRequiredDate(request == null ? null : request.date());
-        List<String> userIds = normalizeUserIds(request == null ? null : request.userIds());
-        Map<String, User> usersById = userRepository.findByIds(userIds).stream()
+        List<String> selectedUserIds = normalizeUserIdsAllowEmpty(request == null ? null : request.userIds());
+        List<User> activeUsers = userRepository.findAll().stream()
+                .filter(user -> user.status() == UserStatus.ACTIVE)
+                .toList();
+        Map<String, User> activeUsersById = activeUsers.stream()
                 .collect(LinkedHashMap::new, (map, user) -> map.put(user.id(), user), Map::putAll);
 
-        List<Checkin> saved = new ArrayList<>();
-        for (String userId : userIds) {
-            User user = usersById.get(userId);
-            if (user == null) {
+        for (String userId : selectedUserIds) {
+            if (!activeUsersById.containsKey(userId)) {
                 throw new BusinessException(ErrorCode.CHECKIN_TARGET_USER_NOT_FOUND);
             }
-            if (user.status() != UserStatus.ACTIVE) {
-                throw new BusinessException(ErrorCode.USER_ALREADY_DELETED);
-            }
-            saved.add(saveForDate(userId, targetDate, CheckinStatus.PRESENT));
         }
-        return saved;
+
+        List<CheckinSaveCommand> commands = activeUsers.stream()
+                .map(user -> toSaveCommand(
+                        user.id(),
+                        targetDate,
+                        selectedUserIds.contains(user.id()) ? CheckinStatus.PRESENT : CheckinStatus.ABSENT
+                ))
+                .toList();
+        return checkinRepository.saveAll(commands);
     }
 
     public CheckinPeriodResponse getMyWeek(AuthenticatedUser authenticatedUser, String date) {
@@ -112,9 +117,13 @@ public class CheckinService {
     }
 
     private Checkin saveForDate(String userId, LocalDate targetDate, CheckinStatus status) {
+        return checkinRepository.save(toSaveCommand(userId, targetDate, status));
+    }
+
+    private CheckinSaveCommand toSaveCommand(String userId, LocalDate targetDate, CheckinStatus status) {
         Instant checkedAt = targetDate.atStartOfDay(KST_ZONE).toInstant();
         String date = targetDate.format(DATE_FORMATTER);
-        return checkinRepository.save(new CheckinSaveCommand(
+        return new CheckinSaveCommand(
                 toDocumentId(userId, date),
                 userId,
                 date,
@@ -122,7 +131,7 @@ public class CheckinService {
                 TimeKeyUtil.deriveMonthKey(checkedAt),
                 status,
                 checkedAt
-        ));
+        );
     }
 
     private CheckinPeriodResponse buildWeekResponse(String userId, LocalDate targetDate, String viewerUserId) {
@@ -198,7 +207,7 @@ public class CheckinService {
 
     private LocalDate parseRequiredDate(String date) {
         if (date == null || date.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "date 값이 필요합니다");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "date value is required.");
         }
         try {
             return LocalDate.parse(date, DATE_FORMATTER);
@@ -226,25 +235,21 @@ public class CheckinService {
         return userId + "_" + date.replace("-", "");
     }
 
-    private List<String> normalizeUserIds(List<String> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다");
+    private List<String> normalizeUserIdsAllowEmpty(List<String> userIds) {
+        if (userIds == null) {
+            return List.of();
         }
-        List<String> normalized = userIds.stream()
+        return userIds.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .distinct()
                 .toList();
-        if (normalized.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "userIds 값이 필요합니다");
-        }
-        return normalized;
     }
 
     private List<LocalDate> normalizeDates(UserBulkCheckinRequest request) {
         if (request == null) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "dates 값이 필요합니다");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "dates value is required.");
         }
 
         List<String> rawDates = new ArrayList<>();
@@ -255,7 +260,7 @@ public class CheckinService {
             rawDates.addAll(request.dates());
         }
         if (rawDates.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST, "dates 값이 필요합니다");
+            throw new BusinessException(ErrorCode.INVALID_REQUEST, "dates value is required.");
         }
 
         return rawDates.stream()

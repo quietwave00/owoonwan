@@ -8,6 +8,10 @@ public interface CheckinRepository {
 
     Checkin save(CheckinSaveCommand command);
 
+    default List<Checkin> saveAll(List<CheckinSaveCommand> commands) {
+        return commands.stream().map(this::save).toList();
+    }
+
     List<Checkin> findByDate(String date);
 
     List<Checkin> findByUserIdAndDateRange(String userId, String startDate, String endDate);

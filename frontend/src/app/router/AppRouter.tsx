@@ -28,6 +28,7 @@ export function AppRouter() {
           <Route path="/checkin" element={<CheckinPage />} />
           <Route path="/board/weekly" element={<WeeklyBoardPage />} />
           <Route path="/pledges" element={<PledgesPage />} />
+          <Route path="/stats" element={<AdminStatsPage />} />
           <Route
             element={
               <AdminRoute>
@@ -38,7 +39,6 @@ export function AppRouter() {
             <Route path="/admin/nicknames" element={<AdminNicknamesPage />} />
             <Route path="/admin/kakkdugi" element={<AdminKakkdugiPage />} />
             <Route path="/admin/checkins" element={<AdminCheckinsPage />} />
-            <Route path="/admin/stats" element={<AdminStatsPage />} />
           </Route>
         </Route>
       </Routes>

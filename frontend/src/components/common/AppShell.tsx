@@ -6,16 +6,16 @@ import { getMyCurrentWeekTitle } from "../../api/titles";
 import "./AppShell.css";
 
 const DEFAULT_MAIN_LINKS = [
-  { to: "/checkin", label: "\uCCB4\uD06C" },
-  { to: "/board/weekly", label: "\uC8FC\uAC04" },
-  { to: "/pledges", label: "\uB2E4\uC9D0" },
+  { to: "/checkin", label: "체크" },
+  { to: "/board/weekly", label: "주간" },
+  { to: "/pledges", label: "다짐" },
+  { to: "/stats", label: "통계" }
 ];
 
 const DEFAULT_ADMIN_LINKS = [
-  { to: "/admin/nicknames", label: "\uB2C9\uB124\uC784" },
-  { to: "/admin/kakkdugi", label: "\uAE4D\uB450\uAE30" },
-  { to: "/admin/checkins", label: "\uAD00\uB9AC" },
-  { to: "/admin/stats", label: "\uD1B5\uACC4" },
+  { to: "/admin/nicknames", label: "닉네임" },
+  { to: "/admin/kakkdugi", label: "깍두기" },
+  { to: "/admin/checkins", label: "관리" },
 ];
 
 type AppShellProps = {
@@ -41,7 +41,7 @@ export function AppShell({
     enabled: Boolean(me),
   });
 
-  const currentTitle = titleQuery.data?.effectiveBadges?.[0] ?? "\uD0C0\uC774\uD2C0 \uC5C6\uC74C";
+  const currentTitle = titleQuery.data?.effectiveBadges?.[0] ?? "타이틀 없음";
   const displayName = me?.nicknameDisplay?.trim() || me?.loginId || "";
 
   return (
@@ -51,7 +51,7 @@ export function AppShell({
           <div className="topbar__actions topbar__actions--compact">
             <div className="topbar__logout">
               <button type="button" className="btn-logout" onClick={() => void logout()}>
-                {"\uB85C\uADF8\uC544\uC6C3"}
+                {"로그아웃"}
               </button>
             </div>
             <div className="user-mini-card">
@@ -62,7 +62,7 @@ export function AppShell({
         ) : null}
       </header>
 
-      <nav className="nav-card" aria-label={"\uC8FC \uBA54\uB274"}>
+      <nav className="nav-card" aria-label={"주 메뉴"}>
         <div className="nav-card__group" role="list">
           {mainLinks.map((link) => (
             <NavLink

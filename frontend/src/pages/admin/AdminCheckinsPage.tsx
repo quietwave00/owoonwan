@@ -140,6 +140,7 @@ export function AdminCheckinsPage() {
     mutationFn: async () => bulkAdminCheckin({ date: selectedDate, userIds: selectedUserIds }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.admin.checkins(selectedDate) });
+      window.alert("저장되었슴 ㅎㅎ");
     },
   });
 
@@ -186,7 +187,18 @@ export function AdminCheckinsPage() {
           tone="error"
           title="체크인 조정 화면을 열 수 없습니다"
           description={message}
-          action={<Button size="sm" onClick={() => { void usersQuery.refetch(); void nicknamesQuery.refetch(); void checkinsQuery.refetch(); }}>다시 시도</Button>}
+          action={(
+            <Button
+              size="sm"
+              onClick={() => {
+                void usersQuery.refetch();
+                void nicknamesQuery.refetch();
+                void checkinsQuery.refetch();
+              }}
+            >
+              다시 시도
+            </Button>
+          )}
         />
       </main>
     );
@@ -198,12 +210,12 @@ export function AdminCheckinsPage() {
         <PageIntro
           eyebrow="Admin"
           title="체크인 조정"
-          actions={
+          actions={(
             <>
               <Badge variant="accent">{selectedDate}</Badge>
               <Badge variant="muted">선택 {selectedUserIds.length}명</Badge>
             </>
-          }
+          )}
         />
 
         <div className="weekly-board-nav admin-checkins-page__nav">
@@ -266,7 +278,7 @@ export function AdminCheckinsPage() {
         </div>
 
         <div className="admin-checkins-page__footer">
-          <Button type="button" disabled={saveMutation.isPending || selectedUserIds.length === 0} onClick={() => saveMutation.mutate()}>
+          <Button type="button" disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
             {saveMutation.isPending ? "..." : "저장"}
           </Button>
         </div>
@@ -274,4 +286,3 @@ export function AdminCheckinsPage() {
     </main>
   );
 }
-

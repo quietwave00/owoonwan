@@ -6,6 +6,7 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.WriteBatch;
 import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.checkin.domain.Checkin;
 import org.example.owoonwan.checkin.domain.CheckinStatus;
@@ -26,23 +27,19 @@ public class FirestoreCheckinRepository implements CheckinRepository {
     @Override
     public Checkin save(CheckinSaveCommand command) {
         DocumentReference checkinRef = checkins().document(command.documentId());
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("userId", command.userId());
-        payload.put("date", command.date());
-        payload.put("weekKey", command.weekKey());
-        payload.put("monthKey", command.monthKey());
-        payload.put("status", command.status().name());
-        payload.put("checkedAt", Date.from(command.checkedAt()));
-        FirestoreAwait.get(checkinRef.set(payload));
-        return new Checkin(
-                command.documentId(),
-                command.userId(),
-                command.date(),
-                command.weekKey(),
-                command.monthKey(),
-                command.status(),
-                command.checkedAt()
-        );
+        FirestoreAwait.get(checkinRef.set(toPayload(command)));
+        return toCheckin(command);
+    }
+
+    @Override
+    public List<Checkin> saveAll(List<CheckinSaveCommand> commands) {
+        WriteBatch batch = firestore.batch();
+        for (CheckinSaveCommand command : commands) {
+            DocumentReference checkinRef = checkins().document(command.documentId());
+            batch.set(checkinRef, toPayload(command));
+        }
+        FirestoreAwait.get(batch.commit());
+        return commands.stream().map(this::toCheckin).toList();
     }
 
     @Override
@@ -107,6 +104,29 @@ public class FirestoreCheckinRepository implements CheckinRepository {
 
     private CollectionReference checkins() {
         return firestore.collection("checkins");
+    }
+
+    private Map<String, Object> toPayload(CheckinSaveCommand command) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userId", command.userId());
+        payload.put("date", command.date());
+        payload.put("weekKey", command.weekKey());
+        payload.put("monthKey", command.monthKey());
+        payload.put("status", command.status().name());
+        payload.put("checkedAt", Date.from(command.checkedAt()));
+        return payload;
+    }
+
+    private Checkin toCheckin(CheckinSaveCommand command) {
+        return new Checkin(
+                command.documentId(),
+                command.userId(),
+                command.date(),
+                command.weekKey(),
+                command.monthKey(),
+                command.status(),
+                command.checkedAt()
+        );
     }
 
     private Checkin toCheckin(DocumentSnapshot snapshot) {
