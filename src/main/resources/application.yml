@@ -34,8 +34,6 @@ spring:
   config:
     activate:
       on-profile: prod
-  main:
-    lazy-initialization: true
 
 app:
   firebase:
