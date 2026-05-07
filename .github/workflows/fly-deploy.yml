@@ -1,67 +1,28 @@
-name: Fly Deploy
+name: Deploy to Fly.io
 
 on:
-  pull_request:
-    branches: [ master ]
   push:
-    branches: [ master ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 concurrency:
-  group: fly-deploy-${{ github.ref }}
+  group: fly-deploy-owoonwan
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Backend
+  deploy:
+    name: Deploy
     runs-on: ubuntu-latest
-    env:
-      FLY_BACKEND_APP_NAME: ${{ vars.FLY_BACKEND_APP_NAME }}
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_BACKEND }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate backend deploy settings
-        if: github.event_name != 'pull_request'
-        run: |
-          test -f gradle/wrapper/gradle-wrapper.jar || (echo "gradle/wrapper/gradle-wrapper.jar is missing from the repository" && exit 1)
-          test -n "$FLY_BACKEND_APP_NAME" || (echo "FLY_BACKEND_APP_NAME is empty" && exit 1)
-          test -n "$FLY_API_TOKEN" || (echo "FLY_API_TOKEN_BACKEND is empty" && exit 1)
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Grant execute permission for Gradle
-        run: chmod +x ./gradlew
-
-      - name: Verify backend
-        run: ./gradlew compileJava --no-daemon
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-        if: github.event_name != 'pull_request'
-
-      - name: Deploy backend to Fly.io
-        if: github.event_name != 'pull_request'
-        run: flyctl deploy --remote-only --config fly.backend.toml --app "$FLY_BACKEND_APP_NAME"
-
-  frontend:
-    name: Frontend
-    runs-on: ubuntu-latest
-    env:
-      FLY_FRONTEND_APP_NAME: ${{ vars.FLY_FRONTEND_APP_NAME }}
-      FLY_FRONTEND_API_BASE_URL: ${{ vars.FLY_FRONTEND_API_BASE_URL }}
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_FRONTEND }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate frontend deploy settings
-        if: github.event_name != 'pull_request'
-        run: |
-          test -n "$FLY_FRONTEND_APP_NAME" || (echo "FLY_FRONTEND_APP_NAME is empty" && exit 1)
-          test -n "$FLY_FRONTEND_API_BASE_URL" || (echo "FLY_FRONTEND_API_BASE_URL is empty" && exit 1)
-          test -n "$FLY_API_TOKEN" || (echo "FLY_API_TOKEN_FRONTEND is empty" && exit 1)
 
       - uses: actions/setup-node@v4
         with:
@@ -69,18 +30,19 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Verify frontend
+      - name: Verify frontend build
         working-directory: frontend
-        env:
-          VITE_API_BASE_URL: ${{ env.FLY_FRONTEND_API_BASE_URL }}
         run: |
           npm ci
           npm run build
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-        if: github.event_name != 'pull_request'
+      - name: Verify backend compile
+        run: ./gradlew compileJava --no-daemon
 
-      - name: Deploy frontend to Fly.io
-        if: github.event_name != 'pull_request'
-        working-directory: frontend
-        run: flyctl deploy --remote-only --config fly.toml --app "$FLY_FRONTEND_APP_NAME" --build-arg VITE_API_BASE_URL="$FLY_FRONTEND_API_BASE_URL"
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy app
+        run: flyctl deploy --app owoonwan --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

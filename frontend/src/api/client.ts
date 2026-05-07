@@ -1,7 +1,7 @@
 import { dispatchUnauthorizedEvent, getSessionToken } from "../app/auth/sessionStorage";
 import { ApiError, type ApiResponse } from "../types/api";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function request<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
