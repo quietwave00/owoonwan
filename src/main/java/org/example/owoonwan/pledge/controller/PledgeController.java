@@ -19,7 +19,7 @@ import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/pledges")
+@RequestMapping("/api/pledges")
 public class PledgeController {
 
     private final PledgeService pledgeService;

@@ -23,7 +23,7 @@ import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/checkins")
+@RequestMapping("/api/checkins")
 public class CheckinController {
 
     private final CheckinService checkinService;

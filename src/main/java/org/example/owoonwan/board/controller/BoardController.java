@@ -15,7 +15,7 @@ import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/board")
+@RequestMapping("/api/board")
 public class BoardController {
 
     private final WeeklyBoardService weeklyBoardService;

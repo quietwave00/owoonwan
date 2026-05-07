@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/admin/stats")
+@RequestMapping("/api/admin/stats")
 public class AdminStatsController {
 
     private final AdminGuard adminGuard;

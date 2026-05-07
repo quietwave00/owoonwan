@@ -12,7 +12,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/nicknames")
+@RequestMapping("/api/nicknames")
 public class NicknameController {
 
     private final NicknameService nicknameService;

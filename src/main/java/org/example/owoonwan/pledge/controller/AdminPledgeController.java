@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/admin/pledges")
+@RequestMapping("/api/admin/pledges")
 public class AdminPledgeController {
 
     private final AdminGuard adminGuard;

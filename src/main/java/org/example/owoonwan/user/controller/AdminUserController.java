@@ -22,7 +22,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/admin/users")
+@RequestMapping("/api/admin/users")
 public class AdminUserController {
 
     private final AdminGuard adminGuard;

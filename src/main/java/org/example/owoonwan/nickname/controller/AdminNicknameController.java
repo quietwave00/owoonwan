@@ -21,7 +21,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/admin/nicknames")
+@RequestMapping("/api/admin/nicknames")
 public class AdminNicknameController {
 
     private final AdminGuard adminGuard;

@@ -16,7 +16,7 @@ import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/titles")
+@RequestMapping("/api/titles")
 public class TitleController {
 
     private final TitleQueryService titleQueryService;

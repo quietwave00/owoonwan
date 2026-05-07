@@ -9,24 +9,24 @@ import type {
 
 export function getMonthlyBoard(month?: string) {
   const query = month ? `?month=${month}` : "";
-  return apiFetch<MonthlyBoardResponse>(`/stats/monthly-board${query}`);
+  return apiFetch<MonthlyBoardResponse>(`/api/stats/monthly-board${query}`);
 }
 
 export function getUserCalendar(uid: string, month?: string) {
   const query = month ? `?month=${month}` : "";
-  return apiFetch<UserMonthlyCalendarResponse>(`/stats/users/${uid}/calendar${query}`);
+  return apiFetch<UserMonthlyCalendarResponse>(`/api/stats/users/${uid}/calendar${query}`);
 }
 
 export function getUserSummary(uid: string) {
-  return apiFetch<UserSummaryResponse>(`/stats/users/${uid}/summary`);
+  return apiFetch<UserSummaryResponse>(`/api/stats/users/${uid}/summary`);
 }
 
 export function getAdminWeeklyStats(date?: string) {
   const query = date ? `?date=${date}` : "";
-  return adminFetch<AdminWeeklyStatsResponse>(`/admin/stats/weekly${query}`);
+  return adminFetch<AdminWeeklyStatsResponse>(`/api/admin/stats/weekly${query}`);
 }
 
 export function getAdminMonthlyStats(month?: string) {
   const query = month ? `?month=${month}` : "";
-  return adminFetch<AdminMonthlyStatsResponse>(`/admin/stats/monthly${query}`);
+  return adminFetch<AdminMonthlyStatsResponse>(`/api/admin/stats/monthly${query}`);
 }

@@ -18,7 +18,7 @@ import static org.example.owoonwan.auth.AuthAttributes.AUTHENTICATED_USER;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/stats")
+@RequestMapping("/api/stats")
 public class StatsController {
 
     private final StatsQueryService statsQueryService;

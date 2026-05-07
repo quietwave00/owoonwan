@@ -3,5 +3,5 @@ import type { WeeklyBoardResponse } from "../types/board";
 
 export function getWeeklyBoard(date?: string) {
   const query = date ? `?date=${date}` : "";
-  return apiFetch<WeeklyBoardResponse>(`/board/weekly${query}`);
+  return apiFetch<WeeklyBoardResponse>(`/api/board/weekly${query}`);
 }

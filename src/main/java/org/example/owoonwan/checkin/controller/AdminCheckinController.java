@@ -21,7 +21,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/admin/checkins")
+@RequestMapping("/api/admin/checkins")
 public class AdminCheckinController {
 
     private final AdminGuard adminGuard;
