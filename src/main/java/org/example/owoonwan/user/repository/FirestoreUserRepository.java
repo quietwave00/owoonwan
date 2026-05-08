@@ -1,16 +1,14 @@
 package org.example.owoonwan.user.repository;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.Transaction;
 import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
-import org.example.owoonwan.common.firebase.FirestoreAwait;
+import org.example.owoonwan.common.firebase.FirestoreClientProvider;
 import org.example.owoonwan.user.domain.User;
 import org.example.owoonwan.user.domain.UserRole;
 import org.example.owoonwan.user.domain.UserStatus;
@@ -18,8 +16,8 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,16 +28,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FirestoreUserRepository implements UserRepository {
 
-    private final Firestore firestore;
+    private final FirestoreClientProvider firestoreClientProvider;
 
     @Override
     public String create(String loginId, UserRole role, Instant now) {
-        return FirestoreAwait.get(firestore.runTransaction(transaction -> createUserWithLoginLock(transaction, loginId, role, now)));
+        return firestoreClientProvider.execute("create user",
+                firestore -> firestore.runTransaction(transaction -> createUserWithLoginLock(firestore, transaction, loginId, role, now)));
     }
 
     @Override
     public Optional<User> findById(String userId) {
-        DocumentSnapshot snapshot = FirestoreAwait.get(users().document(userId).get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("find user by id",
+                firestore -> firestore.collection("users").document(userId).get());
         if (!snapshot.exists()) {
             return Optional.empty();
         }
@@ -48,9 +48,8 @@ public class FirestoreUserRepository implements UserRepository {
 
     @Override
     public Optional<User> findByLoginId(String loginId) {
-        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
-                users().whereEqualTo("loginId", loginId).limit(1).get()
-        ).getDocuments();
+        List<QueryDocumentSnapshot> documents = firestoreClientProvider.execute("find user by login id",
+                firestore -> firestore.collection("users").whereEqualTo("loginId", loginId).limit(1).get()).getDocuments();
         if (documents.isEmpty()) {
             return Optional.empty();
         }
@@ -59,12 +58,12 @@ public class FirestoreUserRepository implements UserRepository {
 
     @Override
     public boolean existsByLoginId(String loginId) {
-        if (FirestoreAwait.get(loginIdLocks().document(loginId).get()).exists()) {
+        if (firestoreClientProvider.execute("check login id lock",
+                firestore -> firestore.collection("loginIds").document(loginId).get()).exists()) {
             return true;
         }
-        return !FirestoreAwait.get(
-                users().whereEqualTo("loginId", loginId).limit(1).get()
-        ).isEmpty();
+        return !firestoreClientProvider.execute("check login id existence",
+                firestore -> firestore.collection("users").whereEqualTo("loginId", loginId).limit(1).get()).isEmpty();
     }
 
     @Override
@@ -74,19 +73,19 @@ public class FirestoreUserRepository implements UserRepository {
         }
 
         Map<String, DocumentReference> refsById = new LinkedHashMap<>();
-        for (String userId : userIds) {
-            if (userId == null || userId.isBlank() || refsById.containsKey(userId)) {
-                continue;
-            }
-            refsById.put(userId, users().document(userId));
-        }
-        if (refsById.isEmpty()) {
-            return List.of();
-        }
-
-        List<DocumentSnapshot> snapshots = FirestoreAwait.get(
-                firestore.getAll(refsById.values().toArray(DocumentReference[]::new))
-        );
+        List<DocumentSnapshot> snapshots = firestoreClientProvider.execute("find users by ids",
+                firestore -> {
+                    for (String userId : userIds) {
+                        if (userId == null || userId.isBlank() || refsById.containsKey(userId)) {
+                            continue;
+                        }
+                        refsById.put(userId, firestore.collection("users").document(userId));
+                    }
+                    if (refsById.isEmpty()) {
+                        return com.google.api.core.ApiFutures.immediateFuture(List.<DocumentSnapshot>of());
+                    }
+                    return firestore.getAll(refsById.values().toArray(DocumentReference[]::new));
+                });
         Map<String, User> usersById = new HashMap<>();
         for (DocumentSnapshot snapshot : snapshots) {
             if (snapshot.exists()) {
@@ -106,38 +105,41 @@ public class FirestoreUserRepository implements UserRepository {
 
     @Override
     public List<User> findAll() {
-        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
-                users().orderBy("createdAt").get()
-        ).getDocuments();
+        List<QueryDocumentSnapshot> documents = firestoreClientProvider.execute("find all users",
+                firestore -> firestore.collection("users").orderBy("createdAt").get()).getDocuments();
         return documents.stream().map(this::toUser).toList();
     }
 
     @Override
     public User updateRole(String userId, UserRole role) {
-        DocumentReference userRef = users().document(userId);
-        DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("get user for role update",
+                firestore -> firestore.collection("users").document(userId).get());
         if (!snapshot.exists()) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        FirestoreAwait.get(userRef.update(Map.of("role", role.name())));
-        return toUser(FirestoreAwait.get(userRef.get()));
+        firestoreClientProvider.execute("update user role",
+                firestore -> firestore.collection("users").document(userId).update(Map.of("role", role.name())));
+        return toUser(firestoreClientProvider.execute("reload user after role update",
+                firestore -> firestore.collection("users").document(userId).get()));
     }
 
     @Override
     public User updateKakkdugi(String userId, boolean kakkdugi) {
-        DocumentReference userRef = users().document(userId);
-        DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("get user for kakkdugi update",
+                firestore -> firestore.collection("users").document(userId).get());
         if (!snapshot.exists()) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        FirestoreAwait.get(userRef.update(Map.of("kakkdugi", kakkdugi)));
-        return toUser(FirestoreAwait.get(userRef.get()));
+        firestoreClientProvider.execute("update user kakkdugi",
+                firestore -> firestore.collection("users").document(userId).update(Map.of("kakkdugi", kakkdugi)));
+        return toUser(firestoreClientProvider.execute("reload user after kakkdugi update",
+                firestore -> firestore.collection("users").document(userId).get()));
     }
 
     @Override
     public User softDelete(String userId, Instant now) {
-        DocumentReference userRef = users().document(userId);
-        DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("get user for soft delete",
+                firestore -> firestore.collection("users").document(userId).get());
         if (!snapshot.exists()) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
@@ -152,37 +154,36 @@ public class FirestoreUserRepository implements UserRepository {
         updates.put("deletedAt", Date.from(now));
         updates.put("nicknameId", null);
         updates.put("nicknameDisplay", null);
-        FirestoreAwait.get(userRef.update(updates));
+        firestoreClientProvider.execute("soft delete user",
+                firestore -> firestore.collection("users").document(userId).update(updates));
 
-        return toUser(FirestoreAwait.get(userRef.get()));
+        return toUser(firestoreClientProvider.execute("reload user after soft delete",
+                firestore -> firestore.collection("users").document(userId).get()));
     }
 
     @Override
     public void updateLastLoginAt(String userId, Instant now) {
-        DocumentReference userRef = users().document(userId);
-        DocumentSnapshot snapshot = FirestoreAwait.get(userRef.get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("get user for last login update",
+                firestore -> firestore.collection("users").document(userId).get());
         if (!snapshot.exists()) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        FirestoreAwait.get(userRef.update("lastLoginAt", Date.from(now)));
+        firestoreClientProvider.execute("update last login timestamp",
+                firestore -> firestore.collection("users").document(userId).update("lastLoginAt", Date.from(now)));
     }
 
-    private CollectionReference users() {
-        return firestore.collection("users");
-    }
-
-    private CollectionReference loginIdLocks() {
-        return firestore.collection("loginIds");
-    }
-
-    private String createUserWithLoginLock(Transaction transaction, String loginId, UserRole role, Instant now) throws Exception {
-        DocumentReference loginIdRef = loginIdLocks().document(loginId);
+    private String createUserWithLoginLock(com.google.cloud.firestore.Firestore firestore,
+                                           Transaction transaction,
+                                           String loginId,
+                                           UserRole role,
+                                           Instant now) throws Exception {
+        DocumentReference loginIdRef = firestore.collection("loginIds").document(loginId);
         if (transaction.get(loginIdRef).get().exists()) {
             throw new BusinessException(ErrorCode.LOGIN_ID_ALREADY_EXISTS);
         }
 
         String userId = UUID.randomUUID().toString();
-        DocumentReference userRef = users().document(userId);
+        DocumentReference userRef = firestore.collection("users").document(userId);
         Map<String, Object> payload = new HashMap<>();
         payload.put("loginId", loginId);
         payload.put("nicknameId", null);

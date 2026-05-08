@@ -1,49 +1,52 @@
 package org.example.owoonwan.nickname.repository;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.Transaction;
 import lombok.RequiredArgsConstructor;
 import org.example.owoonwan.common.error.BusinessException;
 import org.example.owoonwan.common.error.ErrorCode;
-import org.example.owoonwan.common.firebase.FirestoreAwait;
+import org.example.owoonwan.common.firebase.FirestoreClientProvider;
 import org.example.owoonwan.nickname.domain.Nickname;
 import org.example.owoonwan.user.domain.UserStatus;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
 public class FirestoreNicknameRepository implements NicknameRepository {
 
-    private final Firestore firestore;
+    private final FirestoreClientProvider firestoreClientProvider;
 
     @Override
     public String create(String display, Instant now) {
-        DocumentReference document = nicknames().document();
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("display", display);
-        payload.put("isActive", true);
-        payload.put("assignedTo", null);
-        payload.put("createdAt", Date.from(now));
-        payload.put("updatedAt", Date.from(now));
-        FirestoreAwait.get(document.set(payload));
-        return document.getId();
+        String nicknameId = UUID.randomUUID().toString();
+        firestoreClientProvider.execute("create nickname", firestore -> {
+            DocumentReference document = firestore.collection("nicknames").document(nicknameId);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("display", display);
+            payload.put("isActive", true);
+            payload.put("assignedTo", null);
+            payload.put("createdAt", Date.from(now));
+            payload.put("updatedAt", Date.from(now));
+            return document.set(payload);
+        });
+        return nicknameId;
     }
 
     @Override
     public Optional<Nickname> findById(String nicknameId) {
-        DocumentSnapshot snapshot = FirestoreAwait.get(nicknames().document(nicknameId).get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("find nickname by id",
+                firestore -> firestore.collection("nicknames").document(nicknameId).get());
         if (!snapshot.exists()) {
             return Optional.empty();
         }
@@ -52,24 +55,25 @@ public class FirestoreNicknameRepository implements NicknameRepository {
 
     @Override
     public List<Nickname> findAll() {
-        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
-                nicknames().orderBy("display").get()
-        ).getDocuments();
+        List<QueryDocumentSnapshot> documents = firestoreClientProvider.execute("find all nicknames",
+                firestore -> firestore.collection("nicknames").orderBy("display").get()).getDocuments();
         return documents.stream().map(this::toNickname).toList();
     }
 
     @Override
     public List<Nickname> findAllActive() {
-        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
-                nicknames().whereEqualTo("isActive", true).orderBy("display").get()
-        ).getDocuments();
+        List<QueryDocumentSnapshot> documents = firestoreClientProvider.execute("find active nicknames",
+                firestore -> firestore.collection("nicknames")
+                        .whereEqualTo("isActive", true)
+                        .orderBy("display")
+                        .get()).getDocuments();
         return documents.stream().map(this::toNickname).toList();
     }
 
     @Override
     public Nickname update(String nicknameId, String display, Boolean isActive, Instant now) {
-        DocumentReference nicknameRef = nicknames().document(nicknameId);
-        DocumentSnapshot snapshot = FirestoreAwait.get(nicknameRef.get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("get nickname for update",
+                firestore -> firestore.collection("nicknames").document(nicknameId).get());
         if (!snapshot.exists()) {
             throw new BusinessException(ErrorCode.NICKNAME_NOT_FOUND);
         }
@@ -77,48 +81,53 @@ public class FirestoreNicknameRepository implements NicknameRepository {
         String updatedDisplay = display == null || display.isBlank() ? snapshot.getString("display") : display.trim();
 
         if (display != null && !display.isBlank()) {
-            FirestoreAwait.get(nicknameRef.update("display", updatedDisplay));
+            firestoreClientProvider.execute("update nickname display",
+                    firestore -> firestore.collection("nicknames").document(nicknameId).update("display", updatedDisplay));
             syncUserNicknameDisplay(nicknameId, updatedDisplay);
         }
         if (isActive != null) {
-            FirestoreAwait.get(nicknameRef.update("isActive", isActive));
+            firestoreClientProvider.execute("update nickname active flag",
+                    firestore -> firestore.collection("nicknames").document(nicknameId).update("isActive", isActive));
         }
-        FirestoreAwait.get(nicknameRef.update("updatedAt", Date.from(now)));
-        return toNickname(FirestoreAwait.get(nicknameRef.get()));
+        firestoreClientProvider.execute("update nickname timestamp",
+                firestore -> firestore.collection("nicknames").document(nicknameId).update("updatedAt", Date.from(now)));
+        return toNickname(firestoreClientProvider.execute("reload nickname",
+                firestore -> firestore.collection("nicknames").document(nicknameId).get()));
     }
 
     @Override
     public void assignNicknameToUserFixedOnce(String nicknameId, String userId, Instant now) {
-        FirestoreAwait.get(firestore.runTransaction(transaction -> assignNicknameToUser(transaction, nicknameId, userId, now)));
+        firestoreClientProvider.execute("assign nickname to user",
+                firestore -> firestore.runTransaction(transaction -> assignNicknameToUser(firestore, transaction, nicknameId, userId, now)));
     }
 
     @Override
     public void clearAssignment(String userId, Instant now) {
-        List<QueryDocumentSnapshot> snapshots = FirestoreAwait.get(
-                nicknames().whereEqualTo("assignedTo", userId).get()
-        ).getDocuments();
+        List<QueryDocumentSnapshot> snapshots = firestoreClientProvider.execute("find nickname assignments",
+                firestore -> firestore.collection("nicknames").whereEqualTo("assignedTo", userId).get()).getDocuments();
 
         for (QueryDocumentSnapshot snapshot : snapshots) {
             Map<String, Object> updates = new HashMap<>();
             updates.put("assignedTo", null);
             updates.put("updatedAt", Date.from(now));
-            FirestoreAwait.get(snapshot.getReference().update(updates));
+            firestoreClientProvider.execute("clear nickname assignment",
+                    firestore -> firestore.collection("nicknames").document(snapshot.getId()).update(updates));
         }
 
-        FirestoreAwait.get(firestore.collection("users").document(userId).update(Map.of(
-                "nicknameId", null,
-                "nicknameDisplay", null
-        )));
+        firestoreClientProvider.execute("clear user nickname info",
+                firestore -> firestore.collection("users").document(userId).update(Map.of(
+                        "nicknameId", null,
+                        "nicknameDisplay", null
+                )));
     }
 
-    private Void assignNicknameToUser(
-            Transaction transaction,
-            String nicknameId,
-            String userId,
-            Instant now
-    ) throws Exception {
+    private Void assignNicknameToUser(com.google.cloud.firestore.Firestore firestore,
+                                      Transaction transaction,
+                                      String nicknameId,
+                                      String userId,
+                                      Instant now) throws Exception {
         DocumentReference userRef = firestore.collection("users").document(userId);
-        DocumentReference nicknameRef = nicknames().document(nicknameId);
+        DocumentReference nicknameRef = firestore.collection("nicknames").document(nicknameId);
         DocumentSnapshot userSnapshot = transaction.get(userRef).get();
         DocumentSnapshot nicknameSnapshot = transaction.get(nicknameRef).get();
 
@@ -157,19 +166,15 @@ public class FirestoreNicknameRepository implements NicknameRepository {
     }
 
     private void syncUserNicknameDisplay(String nicknameId, String display) {
-        List<QueryDocumentSnapshot> users = FirestoreAwait.get(
-                firestore.collection("users")
+        List<QueryDocumentSnapshot> users = firestoreClientProvider.execute("find users by nickname id",
+                firestore -> firestore.collection("users")
                         .whereEqualTo("nicknameId", nicknameId)
-                        .get()
-        ).getDocuments();
+                        .get()).getDocuments();
 
         for (QueryDocumentSnapshot user : users) {
-            FirestoreAwait.get(user.getReference().update("nicknameDisplay", display));
+            firestoreClientProvider.execute("sync user nickname display",
+                    firestore -> firestore.collection("users").document(user.getId()).update("nicknameDisplay", display));
         }
-    }
-
-    private CollectionReference nicknames() {
-        return firestore.collection("nicknames");
     }
 
     private Nickname toNickname(DocumentSnapshot snapshot) {

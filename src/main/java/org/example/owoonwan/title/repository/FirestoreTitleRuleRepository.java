@@ -1,27 +1,25 @@
 package org.example.owoonwan.title.repository;
 
 import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import lombok.RequiredArgsConstructor;
-import org.example.owoonwan.common.firebase.FirestoreAwait;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.example.owoonwan.common.firebase.FirestoreClientProvider;
 import org.example.owoonwan.title.domain.TitleRules;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-@ConditionalOnBean(Firestore.class)
+@ConditionalOnBean(FirestoreClientProvider.class)
 @RequiredArgsConstructor
 public class FirestoreTitleRuleRepository implements TitleRuleRepository {
 
-    private final Firestore firestore;
+    private final FirestoreClientProvider firestoreClientProvider;
 
     @Override
     public Optional<TitleRules> findRules() {
-        DocumentSnapshot snapshot = FirestoreAwait.get(
-                firestore.collection("settings").document("titlesRules").get()
-        );
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("find title rules",
+                firestore -> firestore.collection("settings").document("titlesRules").get());
         if (!snapshot.exists()) {
             return Optional.empty();
         }

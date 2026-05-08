@@ -1,14 +1,12 @@
 package org.example.owoonwan.pledge.repository;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.Transaction;
 import lombok.RequiredArgsConstructor;
-import org.example.owoonwan.common.firebase.FirestoreAwait;
+import org.example.owoonwan.common.firebase.FirestoreClientProvider;
 import org.example.owoonwan.pledge.domain.Pledge;
 import org.springframework.stereotype.Repository;
 
@@ -22,11 +20,12 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class FirestorePledgeRepository implements PledgeRepository {
 
-    private final Firestore firestore;
+    private final FirestoreClientProvider firestoreClientProvider;
 
     @Override
     public Optional<Pledge> findByUserId(String userId) {
-        DocumentSnapshot snapshot = FirestoreAwait.get(pledges().document(userId).get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("find pledge by user id",
+                firestore -> firestore.collection("pledges").document(userId).get());
         if (!snapshot.exists()) {
             return Optional.empty();
         }
@@ -35,9 +34,8 @@ public class FirestorePledgeRepository implements PledgeRepository {
 
     @Override
     public List<Pledge> findAll() {
-        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
-                pledges().orderBy("updatedAt").get()
-        ).getDocuments();
+        List<QueryDocumentSnapshot> documents = firestoreClientProvider.execute("find all pledges",
+                firestore -> firestore.collection("pledges").orderBy("updatedAt").get()).getDocuments();
         return documents.stream()
                 .map(this::toPledge)
                 .toList();
@@ -45,16 +43,22 @@ public class FirestorePledgeRepository implements PledgeRepository {
 
     @Override
     public Pledge save(String userId, String text, Instant now) {
-        return FirestoreAwait.get(firestore.runTransaction(transaction -> savePledge(transaction, userId, text, now)));
+        return firestoreClientProvider.execute("save pledge",
+                firestore -> firestore.runTransaction(transaction -> savePledge(firestore, transaction, userId, text, now)));
     }
 
     @Override
     public void deleteByUserId(String userId) {
-        FirestoreAwait.get(pledges().document(userId).delete());
+        firestoreClientProvider.execute("delete pledge",
+                firestore -> firestore.collection("pledges").document(userId).delete());
     }
 
-    private Pledge savePledge(Transaction transaction, String userId, String text, Instant now) throws Exception {
-        DocumentReference pledgeRef = pledges().document(userId);
+    private Pledge savePledge(com.google.cloud.firestore.Firestore firestore,
+                              Transaction transaction,
+                              String userId,
+                              String text,
+                              Instant now) throws Exception {
+        DocumentReference pledgeRef = firestore.collection("pledges").document(userId);
         DocumentSnapshot snapshot = transaction.get(pledgeRef).get();
         Long currentVersion = snapshot.exists() ? snapshot.getLong("version") : null;
         int nextVersion = currentVersion == null ? 1 : currentVersion.intValue() + 1;
@@ -66,10 +70,6 @@ public class FirestorePledgeRepository implements PledgeRepository {
         );
         transaction.set(pledgeRef, payload);
         return new Pledge(userId, text, now, nextVersion);
-    }
-
-    private CollectionReference pledges() {
-        return firestore.collection("pledges");
     }
 
     private Pledge toPledge(DocumentSnapshot snapshot) {

@@ -1,12 +1,10 @@
 package org.example.owoonwan.session.repository;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import lombok.RequiredArgsConstructor;
-import org.example.owoonwan.common.firebase.FirestoreAwait;
+import org.example.owoonwan.common.firebase.FirestoreClientProvider;
 import org.example.owoonwan.session.domain.Session;
 import org.springframework.stereotype.Repository;
 
@@ -21,25 +19,27 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FirestoreSessionRepository implements SessionRepository {
 
-    private final Firestore firestore;
+    private final FirestoreClientProvider firestoreClientProvider;
 
     @Override
     public String create(String userId, String loginId, Instant now, Instant expiresAt) {
         String token = UUID.randomUUID().toString();
-        FirestoreAwait.get(sessions().document(token).set(Map.of(
-                "userId", userId,
-                "loginId", loginId,
-                "createdAt", Date.from(now),
-                "lastSeenAt", Date.from(now),
-                "isActive", true,
-                "expiresAt", Date.from(expiresAt)
-        )));
+        firestoreClientProvider.execute("create session",
+                firestore -> firestore.collection("sessions").document(token).set(Map.of(
+                        "userId", userId,
+                        "loginId", loginId,
+                        "createdAt", Date.from(now),
+                        "lastSeenAt", Date.from(now),
+                        "isActive", true,
+                        "expiresAt", Date.from(expiresAt)
+                )));
         return token;
     }
 
     @Override
     public Optional<Session> findByToken(String token) {
-        DocumentSnapshot snapshot = FirestoreAwait.get(sessions().document(token).get());
+        DocumentSnapshot snapshot = firestoreClientProvider.execute("find session by token",
+                firestore -> firestore.collection("sessions").document(token).get());
         if (!snapshot.exists()) {
             return Optional.empty();
         }
@@ -48,35 +48,34 @@ public class FirestoreSessionRepository implements SessionRepository {
 
     @Override
     public void deactivateByToken(String token, Instant now) {
-        FirestoreAwait.get(sessions().document(token).update(Map.of(
-                "isActive", false,
-                "lastSeenAt", Date.from(now)
-        )));
+        firestoreClientProvider.execute("deactivate session by token",
+                firestore -> firestore.collection("sessions").document(token).update(Map.of(
+                        "isActive", false,
+                        "lastSeenAt", Date.from(now)
+                )));
     }
 
     @Override
     public void deactivateAllByUserId(String userId, Instant now) {
-        List<QueryDocumentSnapshot> documents = FirestoreAwait.get(
-                sessions().whereEqualTo("userId", userId)
+        List<QueryDocumentSnapshot> documents = firestoreClientProvider.execute("find active sessions by user",
+                firestore -> firestore.collection("sessions")
+                        .whereEqualTo("userId", userId)
                         .whereEqualTo("isActive", true)
-                        .get()
-        ).getDocuments();
+                        .get()).getDocuments();
 
         for (QueryDocumentSnapshot document : documents) {
-            FirestoreAwait.get(document.getReference().update(Map.of(
-                    "isActive", false,
-                    "lastSeenAt", Date.from(now)
-            )));
+            firestoreClientProvider.execute("deactivate active session",
+                    firestore -> firestore.collection("sessions").document(document.getId()).update(Map.of(
+                            "isActive", false,
+                            "lastSeenAt", Date.from(now)
+                    )));
         }
     }
 
     @Override
     public void touchLastSeen(String token, Instant now) {
-        FirestoreAwait.get(sessions().document(token).update("lastSeenAt", Date.from(now)));
-    }
-
-    private CollectionReference sessions() {
-        return firestore.collection("sessions");
+        firestoreClientProvider.execute("touch session last seen",
+                firestore -> firestore.collection("sessions").document(token).update("lastSeenAt", Date.from(now)));
     }
 
     private Session toSession(DocumentSnapshot snapshot) {

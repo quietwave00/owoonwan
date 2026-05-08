@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
 //@Disabled("실제 Firestore에 데이터를 쓰는 수동 실행 전용 테스트")
 class FirestoreManualSeedIntegrationTest {
 
-    private static final String LOGIN_ID = "admin";
-    private static final String NICKNAME_DISPLAY = "관리자";
+    private static final String LOGIN_ID = "lovenari";
+    private static final String NICKNAME_DISPLAY = "폭주기관차";
 
     @Autowired
     private UserRepository userRepository;

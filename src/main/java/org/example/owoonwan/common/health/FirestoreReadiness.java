@@ -1,58 +1,45 @@
 package org.example.owoonwan.common.health;
 
-import com.google.cloud.firestore.Firestore;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.example.owoonwan.common.firebase.FirestoreClientProvider;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Component
-@ConditionalOnBean(Firestore.class)
-public class FirestoreReadiness implements ApplicationRunner {
+@ConditionalOnBean(FirestoreClientProvider.class)
+public class FirestoreReadiness {
 
-    private static final int MAX_ATTEMPTS = 3;
-    private static final long WARMUP_TIMEOUT_SECONDS = 15;
-    private static final long RETRY_DELAY_MILLIS = 2000;
-
-    private final Firestore firestore;
+    private final FirestoreClientProvider firestoreClientProvider;
     private final AtomicBoolean ready = new AtomicBoolean(false);
 
-    public FirestoreReadiness(Firestore firestore) {
-        this.firestore = firestore;
+    public FirestoreReadiness(FirestoreClientProvider firestoreClientProvider) {
+        this.firestoreClientProvider = firestoreClientProvider;
     }
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
-        warmUp();
-        ready.set(true);
-        log.info("Firestore readiness warm-up completed");
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        refresh();
+    }
+
+    public void refresh() {
+        try {
+            firestoreClientProvider.execute("firestore readiness probe",
+                    firestore -> firestore.collection("_health").limit(1).get());
+            if (ready.compareAndSet(false, true)) {
+                log.info("Firestore readiness probe succeeded");
+            }
+        } catch (Exception exception) {
+            ready.set(false);
+            log.warn("Firestore readiness probe failed", exception);
+        }
     }
 
     public boolean isReady() {
         return ready.get();
-    }
-
-    private void warmUp() throws Exception {
-        Exception lastException = null;
-
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            try {
-                firestore.collection("_health").limit(1).get().get(WARMUP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                return;
-            } catch (Exception exception) {
-                lastException = exception;
-                log.warn("Firestore warm-up failed on attempt {}/{}", attempt, MAX_ATTEMPTS, exception);
-                if (attempt < MAX_ATTEMPTS) {
-                    Thread.sleep(RETRY_DELAY_MILLIS);
-                }
-            }
-        }
-
-        throw new IllegalStateException("Firestore warm-up failed during startup", lastException);
     }
 }
